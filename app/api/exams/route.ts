@@ -1,24 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, getModel } from '@/lib/ai/router';
 
-// Mock ទិន្នន័យមេរៀន (ព្រោះយើងមិនទាន់មាន Database)
-const MOCK_LESSONS_DATA: Record<string, string> = {
-  "1": "កោសិកាគឺជាឯកតាតូចបំផុតនៃជីវិត។ វាមានប្រភេទ Prokaryotic និង Eukaryotic។ Nucleus ផ្ទុក DNA ។",
-  "2": "Mitochondria គឺជារោងចក្រថាមពលរបស់កោសិកា ដែលផលិត ATP សម្រាប់ដំណើរការកោសិកា។ Ribosome ផលិត Protein ។",
-  "3": "គណិតវិទ្យា៖ សមីការដឺក្រេទី២ មានទម្រង់ ax^2 + bx + c = 0 ។ ដំណោះស្រាយរកបានតាមរូបមន្ត x = (-b ± √(b^2 - 4ac)) / 2a ។"
-};
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { lessonIds, totalQuestions } = body;
+    const { contextText, totalQuestions } = body; // ទទួលអត្ថបទផ្ទាល់
 
-    if (!lessonIds || lessonIds.length === 0) {
-      return NextResponse.json({ error: "សូមជ្រើសរើសមេរៀន" }, { status: 400 });
+    if (!contextText) {
+      return NextResponse.json({ error: "មិនមានអត្ថបទសម្រាប់បង្កើតសំណួរទេ" }, { status: 400 });
     }
-
-    // ប្រមូលអត្ថបទពីមេរៀនដែលបានជ្រើសរើស
-    const contextText = lessonIds.map((id: string) => MOCK_LESSONS_DATA[id] || "").join("\n\n");
 
     const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរប្រឡង។
@@ -56,12 +46,7 @@ ${contextText}
 
     const data = JSON.parse(response.choices[0].message.content!);
 
-    // បង្កើត ID សម្រាប់ Exam ថ្មី (ជាបណ្តោះអាសន្ន)
-    const examId = Date.now().toString();
-
-    // បញ្ជូនលទ្ធផលត្រឡប់ទៅវិញ
     return NextResponse.json({ 
-      examId: examId, 
       questions: data.questions 
     });
 

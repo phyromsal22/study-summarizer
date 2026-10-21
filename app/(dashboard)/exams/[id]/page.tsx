@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { getExamById, updateExamScore } from "@/lib/utils/storage";
 
 type Question = {
   question: string;
@@ -11,47 +12,50 @@ type Question = {
   explanation: string;
 };
 
-export default function ExamRunnerPage() {
+export default function ExamRunnerPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const resolvedParams = use(params);
+  
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isFinished, setIsFinished] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [examTitle, setExamTitle] = useState("");
 
-  // ទាញយកសំណួរពី LocalStorage ពេលទំព័រដំណើរការ
   useEffect(() => {
-    const savedExam = localStorage.getItem("current_exam");
-    if (savedExam) {
-      setQuestions(JSON.parse(savedExam));
+    const exam = getExamById(resolvedParams.id);
+    if (exam) {
+      setQuestions(exam.questions);
+      setExamTitle(exam.title);
     }
     setLoading(false);
-  }, []);
+  }, [resolvedParams.id]);
 
   const handleSelectOption = (optionId: string) => {
     setAnswers({ ...answers, [currentIndex]: optionId });
   };
 
   const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
+    if (currentIndex < questions.length - 1) setCurrentIndex(currentIndex + 1);
   };
 
   const handlePrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
+    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
   };
 
   const calculateScore = () => {
     let score = 0;
     questions.forEach((q, index) => {
-      if (answers[index] === q.correct_answer) {
-        score++;
-      }
+      if (answers[index] === q.correct_answer) score++;
     });
     return score;
+  };
+
+  const handleFinish = () => {
+    const finalScore = calculateScore();
+    updateExamScore(resolvedParams.id, finalScore); // រក្សាទុកពិន្ទុចូលប្រវត្តិ
+    setIsFinished(true);
   };
 
   if (loading) {
@@ -65,16 +69,14 @@ export default function ExamRunnerPage() {
   if (questions.length === 0) {
     return (
       <div className="text-center p-10 bg-white rounded-2xl border border-gray-100 max-w-lg mx-auto mt-10">
-        <h2 className="text-xl font-bold mb-2">រកមិនឃើញសំណួរទេ</h2>
-        <p className="text-gray-500 mb-4">សូមត្រឡប់ទៅបង្កើត Exam ឡើងវិញ</p>
-        <button onClick={() => router.push('/exams/new')} className="bg-indigo-600 text-white px-6 py-2 rounded-xl">
-          ត្រឡប់ក្រោយ
+        <h2 className="text-xl font-bold mb-2 text-red-500">រកមិនឃើញ Exam នេះទេ</h2>
+        <button onClick={() => router.push('/exams')} className="bg-indigo-600 text-white px-6 py-2 rounded-xl mt-4">
+          ត្រឡប់ទៅប្រវត្តិតេស្ត
         </button>
       </div>
     );
   }
 
-  // ផ្ទាំងបង្ហាញលទ្ធផលពេលធ្វើរួច
   if (isFinished) {
     const score = calculateScore();
     return (
@@ -86,25 +88,22 @@ export default function ExamRunnerPage() {
             ពិន្ទុរបស់អ្នក៖ <span className="font-bold text-indigo-600 text-3xl">{score}</span> / {questions.length}
           </p>
           <button 
-            onClick={() => {
-              localStorage.removeItem("current_exam");
-              router.push('/dashboard');
-            }}
+            onClick={() => router.push('/exams')}
             className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
           >
-            ត្រឡប់ទៅផ្ទាំងដើមវិញ
+            ត្រឡប់ទៅប្រវត្តិតេស្ត
           </button>
         </div>
       </div>
     );
   }
 
-  // ផ្ទាំងធ្វើតេស្ត
   const currentQ = questions[currentIndex];
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* Progress */}
+      <h1 className="text-xl font-bold text-gray-900 mb-6">{examTitle}</h1>
+
       <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
         <span>សំណួរទី {currentIndex + 1} នៃ {questions.length}</span>
         <span>{Math.round(((currentIndex + 1) / questions.length) * 100)}%</span>
@@ -116,7 +115,6 @@ export default function ExamRunnerPage() {
         />
       </div>
 
-      {/* ប្រអប់សំណួរ */}
       <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
         <h2 className="text-xl font-semibold text-gray-900 mb-6 leading-relaxed">
           {currentQ.question}
@@ -147,7 +145,6 @@ export default function ExamRunnerPage() {
         </div>
       </div>
 
-      {/* ប៊ូតុងបញ្ជា */}
       <div className="flex justify-between items-center pt-4">
         <button
           onClick={handlePrev}
@@ -159,7 +156,7 @@ export default function ExamRunnerPage() {
 
         {currentIndex === questions.length - 1 ? (
           <button
-            onClick={() => setIsFinished(true)}
+            onClick={handleFinish}
             className="px-8 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all shadow-sm"
           >
             បញ្ចប់ និងមើលពិន្ទុ

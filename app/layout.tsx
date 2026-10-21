@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Kantumruy_Pro, Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "next-themes"; // 👈 បន្ថែមនេះ
 
 const khmerFont = Kantumruy_Pro({ 
   subsets: ["khmer"],
@@ -22,8 +23,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="km" suppressHydrationWarning>
-      <body className={`${khmerFont.variable} ${inter.variable} font-sans antialiased bg-gray-50 text-gray-900`}>
-        {children}
+      <body className={`${khmerFont.variable} ${inter.variable} font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300`}>
+        <ThemeProvider attribute="class" defaultTheme="light">
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

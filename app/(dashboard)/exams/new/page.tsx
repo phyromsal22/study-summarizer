@@ -1,22 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, FileText } from "lucide-react";
-
-// Mock Data (ព្រោះយើងមិនទាន់ភ្ជាប់ Database)
-const MOCK_LESSONS = [
-  { id: "1", title: "ជីវវិទ្យា ជំពូក 1", questionsAvailable: 10 },
-  { id: "2", title: "ជីវវិទ្យា ជំពូក 2", questionsAvailable: 8 },
-  { id: "3", title: "គណិតវិទ្យា ជំពូក 4", questionsAvailable: 12 },
-];
+import { getLessons, Lesson, saveExamToHistory } from "@/lib/utils/storage";
 
 export default function ExamBuilderPage() {
   const router = useRouter();
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLessons(getLessons());
+  }, []);
 
   const toggleLesson = (id: string) => {
     setSelectedLessons(prev => 
@@ -34,24 +33,26 @@ export default function ExamBuilderPage() {
     setError("");
 
     try {
-      // នេះជាការផ្ញើទៅ API (យើងនឹងបង្កើតវានៅជំហានបន្ទាប់)
+      const selectedLessonData = lessons.filter(l => selectedLessons.includes(l.id));
+      const combinedText = selectedLessonData.map(l => l.summary).join("\n\n");
+
       const res = await fetch("/api/exams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lessonIds: selectedLessons,
-          totalQuestions,
-        }),
+        body: JSON.stringify({ contextText: combinedText, totalQuestions }),
       });
 
-            const data = await res.json();
+      const data = await res.json();
       if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
 
-      // រក្សាទុកសំណួរទុកក្នុង Browser បណ្តោះអាសន្ន
-      localStorage.setItem("current_exam", JSON.stringify(data.questions));
+      // រក្សាទុកចូល LocalStorage
+      const newExam = saveExamToHistory({
+        title: `Exam ថ្មី - ${new Date().toLocaleDateString('km-KH')}`,
+        questions: data.questions,
+        totalQuestions: data.questions.length,
+      });
 
-      // បញ្ជូនទៅកាន់ទំព័រធ្វើតេស្ត
-      router.push(`/exams/${data.examId}`);
+      router.push(`/exams/${newExam.id}`);
       
     } catch (err: any) {
       setError(err.message);
@@ -68,39 +69,40 @@ export default function ExamBuilderPage() {
       </div>
 
       <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-6">
-        {/* ជ្រើសរើសមេរៀន */}
         <div>
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-indigo-500" />
-            មេរៀនដែលមាន
+            <FileText className="w-5 h-5 text-indigo-500" /> មេរៀនដែលមាន
           </h2>
-          <div className="space-y-3">
-            {MOCK_LESSONS.map((lesson) => (
-              <label 
-                key={lesson.id}
-                className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                  selectedLessons.includes(lesson.id) 
-                    ? "border-indigo-500 bg-indigo-50" 
-                    : "border-gray-100 hover:border-indigo-200"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
-                  checked={selectedLessons.includes(lesson.id)}
-                  onChange={() => toggleLesson(lesson.id)}
-                />
-                <span className="ml-3 font-medium text-gray-900 flex-1">{lesson.title}</span>
-                <span className="text-sm text-gray-500">{lesson.questionsAvailable} សំណួរ</span>
-              </label>
-            ))}
-          </div>
+          
+          {lessons.length === 0 ? (
+             <p className="text-gray-500 text-sm">មិនទាន់មានមេរៀនទេ។ សូមទៅផ្ទុកឯកសារជាមុនសិន។</p>
+          ) : (
+            <div className="space-y-3">
+              {lessons.map((lesson) => (
+                <label 
+                  key={lesson.id}
+                  className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    selectedLessons.includes(lesson.id) 
+                      ? "border-indigo-500 bg-indigo-50" 
+                      : "border-gray-100 hover:border-indigo-200"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500"
+                    checked={selectedLessons.includes(lesson.id)}
+                    onChange={() => toggleLesson(lesson.id)}
+                  />
+                  <span className="ml-3 font-medium text-gray-900 flex-1">{lesson.title}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* កំណត់ចំនួនសំណួរ */}
         <div className="pt-4 border-t border-gray-100">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            ចំនួនសំណួរសរុប (អតិបរមា 50)
+            ចំនួនសំណួរសរុប
           </label>
           <input
             type="number"
