@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
-import { getLessonById } from "@/lib/utils/storage";
+import { createClient } from "@/lib/supabase/client"; // 👈 បន្ថែម Supabase
 
 type Question = {
   question: string;
@@ -23,12 +23,21 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   const [score, setScore] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
+  const [error, setError] = useState(""); // 👈 បន្ថែម State សម្រាប់ Error
 
-  // ទាញយកសង្ខេប និងបង្កើតសំណួរ
   useEffect(() => {
     const generateQCM = async () => {
-      const lesson = getLessonById(resolvedParams.id);
-      if (!lesson) {
+      const supabase = createClient();
+      
+      // ទាញយកសង្ខេបពី Supabase
+      const { data: lesson, error: lessonError } = await supabase
+        .from('lessons')
+        .select('summary')
+        .eq('id', resolvedParams.id)
+        .single();
+
+      if (lessonError || !lesson) {
+        setError("រកមិនឃើញមេរៀនទេ");
         setLoading(false);
         return;
       }
@@ -43,9 +52,12 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
         
         if (res.ok) {
           setQuestions(data.questions);
+        } else {
+          throw new Error(data.error || "មិនអាចបង្កើតសំណួរបានទេ");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to load QCM", err);
+        setError(err.message); // 👈 បង្ហាញ Error នៅលើអេក្រង់
       } finally {
         setLoading(false);
       }
@@ -55,7 +67,7 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   }, [resolvedParams.id]);
 
   const handleSelect = (optionId: string) => {
-    if (isAnswered) return; // មិនឱ្យចុចពីរដង
+    if (isAnswered) return;
 
     setSelectedOption(optionId);
     setIsAnswered(true);
@@ -79,16 +91,17 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     return (
       <div className="flex flex-col justify-center items-center h-64 gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
-        <p className="text-gray-500 animate-pulse">AI កំពុងបង្កើតសំណួរសម្រាប់អ្នក...</p>
+        <p className="text-gray-500 dark:text-gray-400 animate-pulse">AI កំពុងបង្កើតសំណួរសម្រាប់អ្នក...</p>
       </div>
     );
   }
 
-  if (questions.length === 0) {
+  // បង្ហាញ Error ប្រសិនបើមាន
+  if (error || questions.length === 0) {
     return (
-      <div className="text-center p-10 bg-white rounded-2xl border border-gray-100 max-w-lg mx-auto mt-10">
-        <h2 className="text-xl font-bold mb-2">មានបញ្ហា</h2>
-        <p className="text-gray-500 mb-4">មិនអាចបង្កើតសំណួរបានទេ</p>
+      <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 max-w-lg mx-auto mt-10">
+        <h2 className="text-xl font-bold mb-2 text-red-500">មានបញ្ហា</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">{error || "មិនអាចបង្កើតសំណួរបានទេ"}</p>
         <button onClick={() => router.push(`/lessons/${resolvedParams.id}`)} className="bg-indigo-600 text-white px-6 py-2 rounded-xl">
           ត្រឡប់ក្រោយ
         </button>
@@ -99,16 +112,16 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   if (isFinished) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 mt-10 text-center">
-        <div className="bg-white p-10 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
           <CheckCircle2 className="w-20 h-20 text-indigo-500 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">ធ្វើតេស្តរួចរាល់!</h1>
-          <p className="text-xl text-gray-600 mb-6">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">ធ្វើតេស្តរួចរាល់!</h1>
+          <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
             ពិន្ទុរបស់អ្នក៖ <span className="font-bold text-indigo-600 text-3xl">{score}</span> / {questions.length}
           </p>
           <div className="flex gap-4 justify-center">
             <button 
               onClick={() => router.push(`/lessons/${resolvedParams.id}`)}
-              className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-all"
+              className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
             >
               ត្រឡប់ទៅមេរៀន
             </button>
@@ -128,49 +141,46 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      {/* ក្បាលទំព័រ */}
       <div className="flex items-center gap-4 mb-2">
         <button 
           onClick={() => router.push(`/lessons/${resolvedParams.id}`)}
-          className="p-2 hover:bg-gray-100 rounded-full transition-all"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
         >
-          <ArrowLeft className="w-6 h-6 text-gray-600" />
+          <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-300" />
         </button>
-        <h1 className="text-xl font-bold text-gray-900">QCM តេស្តខ្លី</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">QCM តេស្តខ្លី</h1>
       </div>
 
-      <div className="flex items-center justify-between text-sm text-gray-500 mb-2">
+      <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-2">
         <span>សំណួរទី {currentIndex + 1} នៃ {questions.length}</span>
         <span>ពិន្ទុ៖ {score}</span>
       </div>
-      <div className="w-full bg-gray-100 rounded-full h-2 mb-8">
+      <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 mb-8">
         <div 
           className="bg-indigo-500 h-2 rounded-full transition-all" 
           style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
         />
       </div>
 
-      {/* ប្រអប់សំណួរ */}
-      <div className="bg-white p-8 rounded-2xl border border-gray-200 shadow-sm">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6 leading-relaxed">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6 leading-relaxed">
           {currentQ.question}
         </h2>
 
         <div className="space-y-3">
           {currentQ.options.map((opt) => {
-            // កំណត់ពណ៌ពេលឆ្លើយរួច
-            let buttonClass = "border-gray-200 hover:border-indigo-300 hover:bg-gray-50";
+            let buttonClass = "border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-800 dark:text-gray-200";
             let icon = null;
 
             if (isAnswered) {
               if (opt.id === currentQ.correct_answer) {
-                buttonClass = "border-green-500 bg-green-50 text-green-900";
+                buttonClass = "border-green-500 bg-green-50 dark:bg-green-900/30 text-green-900 dark:text-green-300";
                 icon = <CheckCircle2 className="w-5 h-5 text-green-600 ml-auto" />;
               } else if (opt.id === selectedOption) {
-                buttonClass = "border-red-500 bg-red-50 text-red-900";
+                buttonClass = "border-red-500 bg-red-50 dark:bg-red-900/30 text-red-900 dark:text-red-300";
                 icon = <XCircle className="w-5 h-5 text-red-600 ml-auto" />;
               } else {
-                buttonClass = "border-gray-200 opacity-50"; // ធ្វើឱ្យព្រិលៗ
+                buttonClass = "border-gray-200 dark:border-gray-700 opacity-50";
               }
             }
 
@@ -184,7 +194,7 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
                   isAnswered && opt.id === currentQ.correct_answer ? "bg-green-600 text-white" :
                   isAnswered && opt.id === selectedOption ? "bg-red-600 text-white" :
-                  "bg-gray-100 text-gray-500"
+                  "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
                 }`}>
                   {opt.id}
                 </div>
@@ -195,10 +205,9 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
           })}
         </div>
 
-        {/* បង្ហាញការពន្យល់ពេលឆ្លើយរួច */}
         {isAnswered && (
           <div className={`mt-6 p-4 rounded-xl text-sm animate-in fade-in slide-in-from-top-2 ${
-            selectedOption === currentQ.correct_answer ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+            selectedOption === currentQ.correct_answer ? "bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-300"
           }`}>
             <p className="font-semibold mb-1">
               {selectedOption === currentQ.correct_answer ? "✅ ត្រឹមត្រូវ!" : "❌ មិនត្រឹមត្រូវទេ!"}
@@ -208,7 +217,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
         )}
       </div>
 
-      {/* ប៊ូតុងបន្ទាប់ */}
       {isAnswered && (
         <div className="flex justify-end pt-4 animate-in fade-in">
           <button

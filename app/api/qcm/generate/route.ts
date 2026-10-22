@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, getModel } from '@/lib/ai/router';
 
+export const maxDuration = 60; // 👈 បន្ថែមនេះដើម្បីការពារ Timeout លើ Vercel
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();

@@ -3,7 +3,7 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
-import { createClient } from "@/lib/supabase/client"; // 👈 ភ្ជាប់ Supabase
+import { createClient } from "@/lib/supabase/client";
 
 type Flashcard = {
   id: string;
@@ -20,7 +20,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ទាញយក ឬបង្កើតកាតថ្មីពី Supabase
   useEffect(() => {
     const initFlashcards = async () => {
       const supabase = createClient();
@@ -59,11 +58,16 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         const data = await res.json();
         
         if (res.ok && data.flashcards) {
+          // ទាញយក User ID ដើម្បីរក្សាទុក
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error("សូម Login ជាមុនសិន");
+
           // ៣. រក្សាទុកកាតថ្មីៗចូល Supabase Database
           const cardsToInsert = data.flashcards.map((c: any) => ({
             lesson_id: resolvedParams.id,
             question: c.question,
             answer: c.answer,
+            user_id: user.id, // 👈 បន្ថែម user_id នៅទីនេះ
           }));
 
           const { data: savedCards, error: saveError } = await supabase
@@ -73,6 +77,8 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
           if (!saveError && savedCards) {
             setCards(savedCards);
+          } else if (saveError) {
+            console.error("DB Error:", saveError.message);
           }
         }
       } catch (err) {
@@ -124,7 +130,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 mt-4">
-      {/* ក្បាលទំព័រ */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
@@ -140,7 +145,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         </span>
       </div>
 
-      {/* កាតចងចាំ (Flip Card) */}
       <div 
         className="relative w-full h-[350px] cursor-pointer"
         style={{ perspective: '1000px' }} 
@@ -154,8 +158,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
             transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
           }}
         >
-          
-          {/* ផ្នែកខាងមុខ (សំណួរ) */}
           <div 
             className="absolute w-full h-full bg-white dark:bg-gray-800 border-2 border-indigo-100 dark:border-indigo-900/50 rounded-3xl shadow-sm p-8 flex flex-col items-center justify-center text-center"
             style={{ backfaceVisibility: 'hidden' }}
@@ -169,7 +171,6 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
             </p>
           </div>
 
-          {/* ផ្នែកខាងក្រោយ (ចម្លើយ) */}
           <div 
             className="absolute w-full h-full bg-indigo-600 dark:bg-indigo-700 rounded-3xl shadow-lg p-8 flex flex-col items-center justify-center text-center text-white"
             style={{ 
@@ -182,11 +183,9 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
               {currentCard.answer}
             </p>
           </div>
-
         </div>
       </div>
 
-      {/* ប៊ូតុងបញ្ជា */}
       <div className="flex justify-between items-center pt-4">
         <button
           onClick={handlePrev}

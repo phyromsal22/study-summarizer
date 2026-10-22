@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, getModel } from '@/lib/ai/router';
 
+export const maxDuration = 60; // 👈 បន្ថែមនេះដើម្បីការពារ Timeout លើ Vercel
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { contextText, totalQuestions } = body; // ទទួលអត្ថបទផ្ទាល់
+    const { contextText, totalQuestions } = body;
 
     if (!contextText) {
       return NextResponse.json({ error: "មិនមានអត្ថបទសម្រាប់បង្កើតសំណួរទេ" }, { status: 400 });
