@@ -2,20 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-// 👇 បន្ថែម User នៅទីនេះ
 import { 
-  BookOpen, 
-  FileText, 
-  LayoutDashboard, 
-  PlusCircle, 
-  Trophy, 
-  TrendingUp, 
-  Settings, 
-  LogOut,
-  User 
+  BookOpen, FileText, LayoutDashboard, PlusCircle, 
+  Trophy, TrendingUp, Settings, LogOut, User 
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState } from "react"; // 👈 បន្ថែម useEffect, useState
 
 const routes = [
   { name: "ផ្ទាំងដើម", path: "/dashboard", icon: LayoutDashboard },
@@ -31,8 +24,21 @@ const routes = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [streak, setStreak] = useState(0); // 👈 បន្ថែម State សម្រាប់ Streak
 
-  // មុខងារ Logout
+  // ទាញយក Streak ពី Database ពេល Sidebar ត្រូវបាន Load
+  useEffect(() => {
+    const fetchStreak = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase.from('profiles').select('current_streak').eq('id', user.id).single();
+        if (data) setStreak(data.current_streak);
+      }
+    };
+    fetchStreak();
+  }, []);
+
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -70,13 +76,16 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
-        {/* ប្រអប់ Streak */}
-        <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl text-center">
-          <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 mb-1">🔥 7-Day Streak!</p>
-          <p className="text-xs text-indigo-600 dark:text-indigo-400">អ្នកកំពុងរៀនបានល្អណាស់</p>
+        {/* 👇 បង្ហាញ Streak ពិតប្រាកដ 👇 */}
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 p-4 rounded-xl text-center border border-orange-100 dark:border-orange-900/50">
+          <p className="text-sm font-bold text-orange-600 dark:text-orange-400 mb-1 flex items-center justify-center gap-1">
+            🔥 {streak} ថ្ងៃជាប់គ្នា!
+          </p>
+          <p className="text-xs text-orange-500/80 dark:text-orange-300/80">
+            {streak > 0 ? "បន្តខិតខំរៀនរាល់ថ្ងៃណា!" : "ចាប់ផ្តើមរៀនថ្ងៃនេះ!"}
+          </p>
         </div>
 
-        {/* ប៊ូតុង Logout */}
         <button
           onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-all"

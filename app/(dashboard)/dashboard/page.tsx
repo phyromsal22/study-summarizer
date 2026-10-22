@@ -30,8 +30,42 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchLessons = async () => {
+    const fetchData = async () => {
       const supabase = createClient();
+      
+      // 👇 ១. គណនា Study Streak ពិតប្រាកដ 👇
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('current_streak, last_active_date')
+          .eq('id', user.id)
+          .single();
+
+        if (!profile) {
+          // បើជាលើកដំបូង បង្កើត Profile ថ្មី
+          await supabase.from('profiles').insert({ id: user.id, current_streak: 1, last_active_date: today });
+        } else if (profile.last_active_date !== today) {
+          // បើចូលថ្ងៃផ្សេងពីម្សិលមិញ ត្រូវពិនិត្យថាតើជាប់គ្នាឬអត់
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          let newStreak = profile.current_streak;
+          
+          if (profile.last_active_date === yesterdayStr) {
+            newStreak += 1; // បើចូលម្សិលមិញ បូកបន្ថែម ១
+          } else {
+            newStreak = 1; // បើខកខានចូល ចាប់ផ្តើមឡើងវិញតែ ១
+          }
+
+          await supabase.from('profiles').update({ current_streak: newStreak, last_active_date: today }).eq('id', user.id);
+        }
+      }
+
+      // 👇 ២. ទាញយកមេរៀន 👇
       const { data, error } = await supabase
         .from('lessons')
         .select('*')
@@ -43,7 +77,7 @@ export default function DashboardPage() {
       setTimeout(() => setLoading(false), 500); 
     };
 
-    fetchLessons();
+    fetchData();
   }, []);
 
   return (
