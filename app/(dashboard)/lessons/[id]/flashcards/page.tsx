@@ -3,7 +3,13 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ArrowLeft, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
-import { getLessonById, getFlashcardsByLesson, saveFlashcardsToLesson, Flashcard } from "@/lib/utils/storage";
+import { createClient } from "@/lib/supabase/client"; // 👈 ភ្ជាប់ Supabase
+
+type Flashcard = {
+  id: string;
+  question: string;
+  answer: string;
+};
 
 export default function FlashcardsPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -14,24 +20,37 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ទាញយក ឬបង្កើតកាតថ្មី
+  // ទាញយក ឬបង្កើតកាតថ្មីពី Supabase
   useEffect(() => {
     const initFlashcards = async () => {
-      const existingCards = getFlashcardsByLesson(resolvedParams.id);
+      const supabase = createClient();
       
-      if (existingCards.length > 0) {
+      // ១. ពិនិត្យមើលថាតើមានកាតចងចាំរួចហើយឬនៅក្នុង Database
+      const { data: existingCards, error: fetchError } = await supabase
+        .from('flashcards')
+        .select('*')
+        .eq('lesson_id', resolvedParams.id);
+
+      if (!fetchError && existingCards && existingCards.length > 0) {
         setCards(existingCards);
         setLoading(false);
         return;
       }
 
-      const lesson = getLessonById(resolvedParams.id);
-      if (!lesson) {
+      // ២. បើគ្មានទេ ទាញយកសង្ខេបមេរៀនដើម្បីបង្កើតកាតថ្មី
+      const { data: lesson, error: lessonError } = await supabase
+        .from('lessons')
+        .select('summary')
+        .eq('id', resolvedParams.id)
+        .single();
+
+      if (lessonError || !lesson) {
         setLoading(false);
         return;
       }
 
       try {
+        // ហៅ API ដើម្បីបង្កើតកាតដោយ AI
         const res = await fetch("/api/flashcards/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -39,9 +58,22 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         });
         const data = await res.json();
         
-        if (res.ok) {
-          const savedCards = saveFlashcardsToLesson(resolvedParams.id, data.flashcards);
-          setCards(savedCards);
+        if (res.ok && data.flashcards) {
+          // ៣. រក្សាទុកកាតថ្មីៗចូល Supabase Database
+          const cardsToInsert = data.flashcards.map((c: any) => ({
+            lesson_id: resolvedParams.id,
+            question: c.question,
+            answer: c.answer,
+          }));
+
+          const { data: savedCards, error: saveError } = await supabase
+            .from('flashcards')
+            .insert(cardsToInsert)
+            .select();
+
+          if (!saveError && savedCards) {
+            setCards(savedCards);
+          }
         }
       } catch (err) {
         console.error("Failed to generate flashcards", err);
@@ -71,16 +103,16 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
     return (
       <div className="flex flex-col justify-center items-center h-64 gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
-        <p className="text-gray-500 animate-pulse">AI កំពុងបង្កើតកាតចងចាំសម្រាប់អ្នក...</p>
+        <p className="text-gray-500 dark:text-gray-400 animate-pulse">AI កំពុងបង្កើតកាតចងចាំសម្រាប់អ្នក...</p>
       </div>
     );
   }
 
   if (cards.length === 0) {
     return (
-      <div className="text-center p-10 bg-white rounded-2xl border border-gray-100 max-w-lg mx-auto mt-10">
+      <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 max-w-lg mx-auto mt-10">
         <h2 className="text-xl font-bold mb-2">មានបញ្ហា</h2>
-        <p className="text-gray-500 mb-4">មិនអាចបង្កើតកាតបានទេ</p>
+        <p className="text-gray-500 dark:text-gray-400 mb-4">មិនអាចបង្កើតកាតបានទេ</p>
         <button onClick={() => router.push(`/lessons/${resolvedParams.id}`)} className="bg-indigo-600 text-white px-6 py-2 rounded-xl">
           ត្រឡប់ក្រោយ
         </button>
@@ -97,13 +129,13 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         <div className="flex items-center gap-4">
           <button 
             onClick={() => router.push(`/lessons/${resolvedParams.id}`)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
           >
-            <ArrowLeft className="w-6 h-6 text-gray-600" />
+            <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-300" />
           </button>
-          <h1 className="text-xl font-bold text-gray-900">កាតចងចាំ</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">កាតចងចាំ</h1>
         </div>
-        <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+        <span className="text-sm font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400 px-3 py-1 rounded-full">
           {currentIndex + 1} / {cards.length}
         </span>
       </div>
@@ -111,7 +143,7 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
       {/* កាតចងចាំ (Flip Card) */}
       <div 
         className="relative w-full h-[350px] cursor-pointer"
-        style={{ perspective: '1000px' }} // បន្ថែម Perspective សម្រាប់ 3D
+        style={{ perspective: '1000px' }} 
         onClick={() => setIsFlipped(!isFlipped)}
       >
         <div 
@@ -125,11 +157,11 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
           
           {/* ផ្នែកខាងមុខ (សំណួរ) */}
           <div 
-            className="absolute w-full h-full bg-white border-2 border-indigo-100 rounded-3xl shadow-sm p-8 flex flex-col items-center justify-center text-center"
-            style={{ backfaceVisibility: 'hidden' }} // 👈 លាក់ខ្នងកាត
+            className="absolute w-full h-full bg-white dark:bg-gray-800 border-2 border-indigo-100 dark:border-indigo-900/50 rounded-3xl shadow-sm p-8 flex flex-col items-center justify-center text-center"
+            style={{ backfaceVisibility: 'hidden' }}
           >
             <span className="text-sm font-semibold text-indigo-400 mb-4 tracking-wider uppercase">សំណួរ</span>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 leading-relaxed">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 leading-relaxed">
               {currentCard.question}
             </h2>
             <p className="text-sm text-gray-400 mt-8 flex items-center gap-2">
@@ -139,10 +171,10 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
 
           {/* ផ្នែកខាងក្រោយ (ចម្លើយ) */}
           <div 
-            className="absolute w-full h-full bg-indigo-600 rounded-3xl shadow-lg p-8 flex flex-col items-center justify-center text-center text-white"
+            className="absolute w-full h-full bg-indigo-600 dark:bg-indigo-700 rounded-3xl shadow-lg p-8 flex flex-col items-center justify-center text-center text-white"
             style={{ 
-              backfaceVisibility: 'hidden', // 👈 លាក់ខ្នងកាត
-              transform: 'rotateY(180deg)' // 👈 បង្វិលខ្នងកាត 180 ដឺក្រេ
+              backfaceVisibility: 'hidden',
+              transform: 'rotateY(180deg)'
             }}
           >
             <span className="text-sm font-semibold text-indigo-200 mb-4 tracking-wider uppercase">ចម្លើយ</span>
@@ -159,9 +191,9 @@ export default function FlashcardsPage({ params }: { params: Promise<{ id: strin
         <button
           onClick={handlePrev}
           disabled={currentIndex === 0}
-          className="p-4 bg-white border border-gray-200 rounded-full disabled:opacity-50 hover:bg-gray-50 transition-all shadow-sm"
+          className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
         >
-          <ChevronLeft className="w-6 h-6 text-gray-700" />
+          <ChevronLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
         </button>
         
         <p className="text-sm text-gray-400">ចុចលើកាតដើម្បីត្រឡប់</p>

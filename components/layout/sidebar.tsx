@@ -1,9 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { BookOpen, FileText, LayoutDashboard, PlusCircle, Trophy, TrendingUp, Settings } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+// 👇 បន្ថែម User នៅទីនេះ
+import { 
+  BookOpen, 
+  FileText, 
+  LayoutDashboard, 
+  PlusCircle, 
+  Trophy, 
+  TrendingUp, 
+  Settings, 
+  LogOut,
+  User 
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { createClient } from "@/lib/supabase/client";
 
 const routes = [
   { name: "ផ្ទាំងដើម", path: "/dashboard", icon: LayoutDashboard },
@@ -13,10 +25,20 @@ const routes = [
   { name: "វឌ្ឍនភាព", path: "/stats", icon: TrendingUp },
   { name: "ផ្ទុកឯកសារ", path: "/upload", icon: PlusCircle },
   { name: "ការកំណត់", path: "/settings", icon: Settings },
+  { name: "ប្រវត្តិរូប", path: "/profile", icon: User },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // មុខងារ Logout
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
 
   return (
     <aside className="hidden md:flex w-64 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen transition-colors duration-300">
@@ -26,7 +48,7 @@ export function Sidebar() {
         </h1>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
         {routes.map((route) => {
           const isActive = pathname === route.path;
           return (
@@ -47,11 +69,21 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-100 dark:border-gray-700">
+      <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
+        {/* ប្រអប់ Streak */}
         <div className="bg-indigo-50 dark:bg-indigo-900/30 p-4 rounded-xl text-center">
           <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 mb-1">🔥 7-Day Streak!</p>
           <p className="text-xs text-indigo-600 dark:text-indigo-400">អ្នកកំពុងរៀនបានល្អណាស់</p>
         </div>
+
+        {/* ប៊ូតុង Logout */}
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-all"
+        >
+          <LogOut className="w-5 h-5" />
+          ចាកចេញ (Logout)
+        </button>
       </div>
     </aside>
   );

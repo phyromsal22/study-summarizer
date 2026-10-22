@@ -3,7 +3,14 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, BookOpen, Target, Loader2, Layers } from "lucide-react";
-import { getLessonById, Lesson } from "@/lib/utils/storage";
+import { createClient } from "@/lib/supabase/client"; // 👈 ប្រើ Supabase
+
+type Lesson = {
+  id: string;
+  title: string;
+  summary: string;
+  created_at: string;
+};
 
 export default function LessonDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -13,13 +20,23 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
   const [activeTab, setActiveTab] = useState<'summary' | 'flashcards' | 'qcm'>('summary');
   const [loading, setLoading] = useState(true);
 
-  // ទាញយកទិន្នន័យមេរៀនពី LocalStorage
+  // ទាញយកទិន្នន័យមេរៀនពី Supabase
   useEffect(() => {
-    const data = getLessonById(resolvedParams.id);
-    if (data) {
-      setLesson(data);
-    }
-    setLoading(false);
+    const fetchLesson = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('id', resolvedParams.id)
+        .single();
+
+      if (!error && data) {
+        setLesson(data);
+      }
+      setLoading(false);
+    };
+
+    fetchLesson();
   }, [resolvedParams.id]);
 
   if (loading) {
@@ -32,7 +49,7 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
 
   if (!lesson) {
     return (
-      <div className="text-center p-10 bg-white rounded-2xl border border-gray-100 max-w-lg mx-auto mt-10">
+      <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 max-w-lg mx-auto mt-10">
         <h2 className="text-xl font-bold mb-2 text-red-500">រកមិនឃើញមេរៀនទេ</h2>
         <button onClick={() => router.push('/dashboard')} className="bg-indigo-600 text-white px-6 py-2 rounded-xl mt-4">
           ត្រឡប់ទៅផ្ទាំងដើម
@@ -47,53 +64,50 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
       <div className="flex items-center gap-4 mb-8">
         <button 
           onClick={() => router.push('/dashboard')}
-          className="p-2 hover:bg-gray-100 rounded-full transition-all"
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
         >
-          <ArrowLeft className="w-6 h-6 text-gray-600" />
+          <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-300" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{lesson.title}</h1>
-          <p className="text-sm text-gray-500">
-            បង្កើតនៅ៖ {new Date(lesson.createdAt).toLocaleDateString('km-KH')}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{lesson.title}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            បង្កើតនៅ៖ {new Date(lesson.created_at).toLocaleDateString('km-KH')}
           </p>
         </div>
       </div>
 
-      {/* Tabs សម្រាប់ប្តូររវាង សង្ខេប, កាតចងចាំ និង QCM */}
-      <div className="flex border-b border-gray-200 overflow-x-auto">
-        {/* Tab សង្ខេប */}
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
         <button
           onClick={() => setActiveTab('summary')}
           className={`flex items-center gap-2 px-6 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'summary' 
-              ? 'border-indigo-600 text-indigo-600' 
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           }`}
         >
           <BookOpen className="w-5 h-5" />
           សង្ខេបមេរៀន
         </button>
 
-        {/* Tab កាតចងចាំ */}
         <button
           onClick={() => setActiveTab('flashcards')}
           className={`flex items-center gap-2 px-6 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'flashcards' 
-              ? 'border-indigo-600 text-indigo-600' 
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           }`}
         >
           <Layers className="w-5 h-5" />
           កាតចងចាំ
         </button>
 
-        {/* Tab QCM */}
         <button
           onClick={() => setActiveTab('qcm')}
           className={`flex items-center gap-2 px-6 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'qcm' 
-              ? 'border-indigo-600 text-indigo-600' 
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400' 
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           }`}
         >
           <Target className="w-5 h-5" />
@@ -103,8 +117,8 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ផ្ទាំងសង្ខេប */}
       {activeTab === 'summary' && (
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in">
-          <div className="prose prose-indigo max-w-none whitespace-pre-wrap leading-loose text-gray-700 text-lg">
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm animate-in fade-in">
+          <div className="prose prose-indigo dark:prose-invert max-w-none whitespace-pre-wrap leading-loose text-gray-700 dark:text-gray-300 text-lg">
             {lesson.summary}
           </div>
         </div>
@@ -112,10 +126,10 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ផ្ទាំងកាតចងចាំ */}
       {activeTab === 'flashcards' && (
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm text-center animate-in fade-in">
-          <Layers className="w-16 h-16 text-indigo-200 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">កាតចងចាំ</h2>
-          <p className="text-gray-500 mb-6">រំលឹកមេរៀនរបស់អ្នកឱ្យបានឆាប់រហ័ស</p>
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-center animate-in fade-in">
+          <Layers className="w-16 h-16 text-indigo-200 dark:text-indigo-900/50 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">កាតចងចាំ</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">រំលឹកមេរៀនរបស់អ្នកឱ្យបានឆាប់រហ័ស</p>
           <button 
             onClick={() => router.push(`/lessons/${lesson.id}/flashcards`)}
             className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
@@ -127,10 +141,10 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ផ្ទាំង QCM */}
       {activeTab === 'qcm' && (
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm text-center animate-in fade-in">
-          <Target className="w-16 h-16 text-indigo-200 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900 mb-2">QCM តេស្តខ្លីៗ</h2>
-          <p className="text-gray-500 mb-6">សាកល្បងចំណេះដឹងរបស់អ្នកលើមេរៀននេះ</p>
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-center animate-in fade-in">
+          <Target className="w-16 h-16 text-indigo-200 dark:text-indigo-900/50 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">QCM តេស្តខ្លីៗ</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">សាកល្បងចំណេះដឹងរបស់អ្នកលើមេរៀននេះ</p>
           <button 
             onClick={() => router.push(`/lessons/${lesson.id}/qcm`)}
             className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
