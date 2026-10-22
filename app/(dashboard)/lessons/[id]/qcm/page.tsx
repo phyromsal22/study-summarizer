@@ -27,7 +27,7 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   // States សម្រាប់ការកំណត់ (Setup)
   const [isStarted, setIsStarted] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
-  const [difficulty, setDifficulty] = useState("medium"); // 👈 បន្ថែម State សម្រាប់កម្រិត
+  const [difficulty, setDifficulty] = useState("medium");
   const [loading, setLoading] = useState(false);
 
   // មុខងារចាប់ផ្តើមបង្កើតសំណួរ
@@ -57,7 +57,7 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
         body: JSON.stringify({ 
           summary: lesson.summary, 
           questionCount: questionCount,
-          difficulty: difficulty // 👈 បញ្ជូនកម្រិតទៅ API
+          difficulty: difficulty 
         }),
       });
       const data = await res.json();
@@ -116,8 +116,9 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-indigo-500" /> ចំនួនសំណួរ
             </h2>
-            <div className="grid grid-cols-3 gap-4">
-              {[5, 10, 15].map((num) => (
+            {/* 👇 បន្ថែមចំនួនសំណួររហូតដល់ ៤៥ 👇 */}
+            <div className="grid grid-cols-3 gap-3">
+              {[5, 10, 15, 20, 30, 45].map((num) => (
                 <button
                   key={num}
                   onClick={() => setQuestionCount(num)}
@@ -177,7 +178,7 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
       <div className="flex flex-col justify-center items-center h-64 gap-4 mt-20">
         <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
         <p className="text-gray-500 dark:text-gray-400 animate-pulse text-lg">
-          AI កំពុងបង្កើតសំណួរ {questionCount} សម្រាប់អ្នក...
+          AI កំពុងបង្កើតសំណួរ {questionCount} សម្រាប់អ្នក... (អាចរង់ចាំបន្តិច)
         </p>
       </div>
     );
