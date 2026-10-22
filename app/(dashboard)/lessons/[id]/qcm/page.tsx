@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2, XCircle, ArrowLeft } from "lucide-react";
-import { createClient } from "@/lib/supabase/client"; // 👈 បន្ថែម Supabase
+import { Loader2, CheckCircle2, XCircle, ArrowLeft, Play } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type Question = {
   question: string;
@@ -21,54 +21,61 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [score, setScore] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [isFinished, setIsFinished] = useState(false);
-  const [error, setError] = useState(""); // 👈 បន្ថែម State សម្រាប់ Error
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const generateQCM = async () => {
-      const supabase = createClient();
+  // បន្ថែម State សម្រាប់ការកំណត់ (Setup)
+  const [isStarted, setIsStarted] = useState(false);
+  const [questionCount, setQuestionCount] = useState(5); // លំនាំដើម ៥ សំណួរ
+  const [loading, setLoading] = useState(false);
+
+  // មុខងារចាប់ផ្តើមបង្កើតសំណួរ
+  const startQCM = async () => {
+    setIsStarted(true);
+    setLoading(true);
+    setError("");
+
+    const supabase = createClient();
+    
+    // ទាញយកសង្ខេបពី Supabase
+    const { data: lesson, error: lessonError } = await supabase
+      .from('lessons')
+      .select('summary')
+      .eq('id', resolvedParams.id)
+      .single();
+
+    if (lessonError || !lesson) {
+      setError("រកមិនឃើញមេរៀនទេ");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/qcm/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          summary: lesson.summary, 
+          questionCount: questionCount // 👈 បញ្ជូនចំនួនសំណួរដែលបានជ្រើស
+        }),
+      });
+      const data = await res.json();
       
-      // ទាញយកសង្ខេបពី Supabase
-      const { data: lesson, error: lessonError } = await supabase
-        .from('lessons')
-        .select('summary')
-        .eq('id', resolvedParams.id)
-        .single();
-
-      if (lessonError || !lesson) {
-        setError("រកមិនឃើញមេរៀនទេ");
-        setLoading(false);
-        return;
+      if (res.ok) {
+        setQuestions(data.questions);
+      } else {
+        throw new Error(data.error || "មិនអាចបង្កើតសំណួរបានទេ");
       }
-
-      try {
-        const res = await fetch("/api/qcm/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ summary: lesson.summary, questionCount: 5 }),
-        });
-        const data = await res.json();
-        
-        if (res.ok) {
-          setQuestions(data.questions);
-        } else {
-          throw new Error(data.error || "មិនអាចបង្កើតសំណួរបានទេ");
-        }
-      } catch (err: any) {
-        console.error("Failed to load QCM", err);
-        setError(err.message); // 👈 បង្ហាញ Error នៅលើអេក្រង់
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    generateQCM();
-  }, [resolvedParams.id]);
+    } catch (err: any) {
+      console.error("Failed to load QCM", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelect = (optionId: string) => {
     if (isAnswered) return;
-
     setSelectedOption(optionId);
     setIsAnswered(true);
 
@@ -87,28 +94,81 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     }
   };
 
-  if (loading) {
+  // ================= ផ្ទាំងកំណត់ (Setup Screen) =================
+  if (!isStarted) {
     return (
-      <div className="flex flex-col justify-center items-center h-64 gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
-        <p className="text-gray-500 dark:text-gray-400 animate-pulse">AI កំពុងបង្កើតសំណួរសម្រាប់អ្នក...</p>
+      <div className="max-w-xl mx-auto space-y-6 mt-10">
+        <div className="flex items-center gap-4 mb-8">
+          <button 
+            onClick={() => router.push(`/lessons/${resolvedParams.id}`)}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">កំណត់ការធ្វើតេស្ត QCM</h1>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-6 text-center">
+          <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Play className="w-10 h-10 ml-2" />
+          </div>
+          
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">តើអ្នកចង់ធ្វើតេស្តប៉ុន្មានសំណួរ?</h2>
+            <p className="text-gray-500 dark:text-gray-400">AI នឹងបង្កើតសំណួរពីមេរៀននេះសម្រាប់អ្នក</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 pt-4">
+            {[5, 10, 15].map((num) => (
+              <button
+                key={num}
+                onClick={() => setQuestionCount(num)}
+                className={`py-4 rounded-2xl font-bold text-xl border-2 transition-all ${
+                  questionCount === num
+                    ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-500"
+                    : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-indigo-300 dark:hover:border-gray-600"
+                }`}
+              >
+                {num} សំណួរ
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={startQCM}
+            className="w-full mt-8 bg-indigo-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2"
+          >
+            🚀 ចាប់ផ្តើមឥឡូវនេះ
+          </button>
+        </div>
       </div>
     );
   }
 
-  // បង្ហាញ Error ប្រសិនបើមាន
+  // ================= Loading Screen =================
+  if (loading) {
+    return (
+      <div className="flex flex-col justify-center items-center h-64 gap-4 mt-20">
+        <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
+        <p className="text-gray-500 dark:text-gray-400 animate-pulse text-lg">AI កំពុងបង្កើតសំណួរ {questionCount} សម្រាប់អ្នក...</p>
+      </div>
+    );
+  }
+
+  // ================= Error Screen =================
   if (error || questions.length === 0) {
     return (
       <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 max-w-lg mx-auto mt-10">
         <h2 className="text-xl font-bold mb-2 text-red-500">មានបញ្ហា</h2>
         <p className="text-gray-500 dark:text-gray-400 mb-4">{error || "មិនអាចបង្កើតសំណួរបានទេ"}</p>
-        <button onClick={() => router.push(`/lessons/${resolvedParams.id}`)} className="bg-indigo-600 text-white px-6 py-2 rounded-xl">
-          ត្រឡប់ក្រោយ
+        <button onClick={() => setIsStarted(false)} className="bg-indigo-600 text-white px-6 py-2 rounded-xl">
+          ព្យាយាមម្តងទៀត
         </button>
       </div>
     );
   }
 
+  // ================= Finished Screen =================
   if (isFinished) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 mt-10 text-center">
@@ -137,10 +197,11 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     );
   }
 
+  // ================= Quiz Screen =================
   const currentQ = questions[currentIndex];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto space-y-6 mt-4">
       <div className="flex items-center gap-4 mb-2">
         <button 
           onClick={() => router.push(`/lessons/${resolvedParams.id}`)}
