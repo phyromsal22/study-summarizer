@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils/cn";
 
 const routes = [
   { name: "ដើម", path: "/dashboard", icon: LayoutDashboard },
+​​    { name: "សួរ AI", path: "/ask-ai", icon: Bot },
   { name: "មេរៀន", path: "/lessons", icon: BookOpen },
   { name: "បង្កើត Exam", path: "/exams/new", icon: FileText },
   { name: "ប្រវត្តិ", path: "/exams", icon: Trophy },
