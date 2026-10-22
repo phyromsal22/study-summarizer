@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-// 👇 បន្ថែម Bot នៅទីនេះដើម្បីដោះស្រាយ Error
 import { BookOpen, FileText, LayoutDashboard, Trophy, User, Bot } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
