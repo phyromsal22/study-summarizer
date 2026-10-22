@@ -46,6 +46,10 @@ export default function ExamBuilderPage() {
     try {
       const supabase = createClient();
       
+      // ទាញយកព័ត៌មានអ្នកប្រើប្រាស់បច្ចុប្បន្ន
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("សូម Login ជាមុនសិន");
+
       // ទាញយកសង្ខេបនៃមេរៀនដែលបានជ្រើស
       const { data: lessonData, error: fetchError } = await supabase
         .from('lessons')
@@ -66,14 +70,15 @@ export default function ExamBuilderPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
 
-      // រក្សាទុក Exam ចូល Supabase Database
+      // រក្សាទុក Exam ចូល Supabase Database ជាមួយ User ID
       const { data: newExam, error: dbError } = await supabase
         .from('exams')
         .insert({
           title: `Exam ថ្មី - ${new Date().toLocaleDateString('km-KH')}`,
           questions: data.questions,
           total_questions: data.questions.length,
-          completed: false
+          completed: false,
+          user_id: user.id // 👈 បន្ថែមបន្ទាត់នេះ
         })
         .select()
         .single();
