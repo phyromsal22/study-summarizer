@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'ប្រភេទឯកសារមិនគាំទ្រទេ' }, { status: 400 });
     }
 
-    const limitedText = text.slice(0, 15000);
+    const limitedText = text.slice(0, 100000);
     const summary = await generateSummary(limitedText);
 
     return NextResponse.json({ summary });
