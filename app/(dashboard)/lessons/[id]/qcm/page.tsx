@@ -24,13 +24,11 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   const [isFinished, setIsFinished] = useState(false);
   const [error, setError] = useState("");
 
-  // States សម្រាប់ការកំណត់ (Setup)
   const [isStarted, setIsStarted] = useState(false);
   const [questionCount, setQuestionCount] = useState(5);
   const [difficulty, setDifficulty] = useState("medium");
   const [loading, setLoading] = useState(false);
 
-  // មុខងារចាប់ផ្តើមបង្កើតសំណួរ
   const startQCM = async () => {
     setIsStarted(true);
     setLoading(true);
@@ -95,7 +93,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     }
   };
 
-  // ================= ផ្ទាំងកំណត់ (Setup Screen) =================
   if (!isStarted) {
     return (
       <div className="max-w-xl mx-auto space-y-6 mt-10">
@@ -111,12 +108,10 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
 
         <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-8 text-center">
           
-          {/* ជ្រើសរើសចំនួនសំណួរ */}
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-indigo-500" /> ចំនួនសំណួរ
             </h2>
-            {/* 👇 បន្ថែមចំនួនសំណួររហូតដល់ ៤៥ 👇 */}
             <div className="grid grid-cols-3 gap-3">
               {[5, 10, 15, 20, 30, 45].map((num) => (
                 <button
@@ -134,7 +129,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
             </div>
           </div>
 
-          {/* ជ្រើសរើសកម្រិតពិបាក */}
           <div>
             <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-purple-500" /> កម្រិតពិបាក
@@ -172,7 +166,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     );
   }
 
-  // ================= Loading Screen =================
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-64 gap-4 mt-20">
@@ -184,7 +177,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     );
   }
 
-  // ================= Error Screen =================
   if (error || questions.length === 0) {
     return (
       <div className="text-center p-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 max-w-lg mx-auto mt-10">
@@ -197,7 +189,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     );
   }
 
-  // ================= Finished Screen =================
   if (isFinished) {
     return (
       <div className="max-w-2xl mx-auto space-y-6 mt-10 text-center">
@@ -226,7 +217,6 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     );
   }
 
-  // ================= Quiz Screen =================
   const currentQ = questions[currentIndex];
 
   return (

@@ -5,14 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { 
   BookOpen, FileText, LayoutDashboard, PlusCircle, 
   Trophy, TrendingUp, Settings, LogOut, User, Bot 
-} from "lucide-react"; // 👈 បន្ថែម Bot នៅទីនេះ
+} from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useState } from "react";
 
 const routes = [
   { name: "ផ្ទាំងដើម", path: "/dashboard", icon: LayoutDashboard },
-  { name: "សួរ AI", path: "/ask-ai", icon: Bot }, // 👈 បន្ថែម Menu នេះ
+  { name: "សួរ AI", path: "/ask-ai", icon: Bot },
   { name: "ឯកសាររបស់ខ្ញុំ", path: "/lessons", icon: BookOpen },
   { name: "បង្កើត Exam", path: "/exams/new", icon: FileText },
   { name: "ប្រវត្តិតេស្ត", path: "/exams", icon: Trophy },
@@ -27,7 +27,6 @@ export function Sidebar() {
   const router = useRouter();
   const [streak, setStreak] = useState(0);
 
-  // ទាញយក Streak ពី Database ពេល Sidebar ត្រូវបាន Load
   useEffect(() => {
     const fetchStreak = async () => {
       const supabase = createClient();
@@ -77,7 +76,6 @@ export function Sidebar() {
       </nav>
 
       <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
-        {/* បង្ហាញ Streak ពិតប្រាកដ */}
         <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 p-4 rounded-xl text-center border border-orange-100 dark:border-orange-900/50">
           <p className="text-sm font-bold text-orange-600 dark:text-orange-400 mb-1 flex items-center justify-center gap-1">
             🔥 {streak} ថ្ងៃជាប់គ្នា!
