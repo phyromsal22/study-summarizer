@@ -3,17 +3,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, FileText, Loader2 } from "lucide-react";
-import { motion } from "framer-motion"; // 👈 បន្ថែម Animation
+import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { StudyTimer } from "@/components/study-timer"; // 👈 ភ្ជាប់ Timer
 
 type Lesson = {
   id: string;
   title: string;
   summary: string;
   created_at: string;
+  file_url?: string;
 };
 
-// Animation សម្រាប់កាតនីមួយៗ
+// Animation សម្រាប់កាតមេរៀននីមួយៗ
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
@@ -50,17 +52,31 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
-      <Link 
-        href="/upload"
-        className="block border-2 border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl p-10 text-center hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer"
-      >
-        <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Plus className="w-8 h-8" />
+      
+      {/* ផ្នែកខាងលើ៖ ប្រអប់ Upload និង Study Timer */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* ប្រអប់ Upload (យក ២ ចន្លោះ) */}
+        <div className="md:col-span-2">
+          <Link 
+            href="/upload"
+            className="block border-2 border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl p-10 text-center hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer h-full flex flex-col justify-center"
+          >
+            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Plus className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">ផ្ទុកឯកសារថ្មី</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">អូសឯកសារ PDF មកទីនេះ ឬចុចដើម្បីជ្រើសរើស</p>
+          </Link>
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">ផ្ទុកឯកសារថ្មី</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">អូសឯកសារ PDF មកទីនេះ ឬចុចដើម្បីជ្រើសរើស</p>
-      </Link>
 
+        {/* Study Timer (យក ១ ចន្លោះ) */}
+        <div>
+          <StudyTimer />
+        </div>
+      </div>
+
+      {/* ផ្នែកខាងក្រោម៖ បញ្ជីមេរៀន */}
       <div>
         <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📖 ឯកសាររបស់ខ្ញុំ</h3>
         

@@ -21,10 +21,33 @@ export default function UploadPage() {
     setError("");
     setSavedLessonId("");
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
+      const supabase = createClient();
+      
+      // ទាញយកព័ត៌មានអ្នកប្រើប្រាស់បច្ចុប្បន្ន
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("សូម Login ជាមុនសិន");
+
+      // ១. Upload File ទៅ Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('lessons-pdf')
+        .upload(filePath, file);
+
+      if (uploadError) throw new Error("មិនអាច Upload ឯកសារបានទេ: " + uploadError.message);
+
+      // ទាញយក Public URL នៃឯកសារ
+      const { data: { publicUrl } } = supabase.storage
+        .from('lessons-pdf')
+        .getPublicUrl(filePath);
+
+      // ២. ហៅ API ដើម្បីសង្ខេប
+      const formData = new FormData();
+      formData.append("file", file);
+
       const res = await fetch("/api/summarize", {
         method: "POST",
         body: formData,
@@ -35,19 +58,14 @@ export default function UploadPage() {
 
       setSummary(data.summary);
 
-      // 🚀 រក្សាទុកចូល Supabase Database ជាមួយ User ID
-      const supabase = createClient();
-      
-      // ទាញយកព័ត៌មានអ្នកប្រើប្រាស់បច្ចុប្បន្ន
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("សូម Login ជាមុនសិន");
-
+      // ៣. រក្សាទុកចូល Database ជាមួយ Link ឯកសារ
       const { data: savedData, error: dbError } = await supabase
         .from('lessons')
         .insert({
           title: file.name.replace(".pdf", "").replace(".txt", ""),
           summary: data.summary,
-          user_id: user.id, // 👈 ភ្ជាប់ជាមួយ User
+          user_id: user.id,
+          file_url: publicUrl, // 👈 រក្សាទុក Link
         })
         .select()
         .single();

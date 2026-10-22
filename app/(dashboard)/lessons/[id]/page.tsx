@@ -10,6 +10,7 @@ type Lesson = {
   title: string;
   summary: string;
   created_at: string;
+   file_url?: string;
 };
 
 export default function LessonDetailPage({ params }: { params: Promise<{ id: string }> }) {
