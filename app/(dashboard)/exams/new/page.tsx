@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, FileText } from "lucide-react";
+import { Loader2, FileText, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Lesson = {
@@ -15,6 +15,7 @@ export default function ExamBuilderPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(10);
+  const [difficulty, setDifficulty] = useState("medium"); // 👈 បន្ថែម State កម្រិត
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -64,13 +65,17 @@ export default function ExamBuilderPage() {
       const res = await fetch("/api/exams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contextText: combinedText, totalQuestions }),
+        body: JSON.stringify({ 
+          contextText: combinedText, 
+          totalQuestions,
+          difficulty // 👈 បញ្ជូនកម្រិតទៅ API
+        }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
 
-      // រក្សាទុក Exam ចូល Supabase Database ជាមួយ User ID
+      // រក្សាទុក Exam ចូល Supabase Database
       const { data: newExam, error: dbError } = await supabase
         .from('exams')
         .insert({
@@ -78,7 +83,7 @@ export default function ExamBuilderPage() {
           questions: data.questions,
           total_questions: data.questions.length,
           completed: false,
-          user_id: user.id // 👈 បន្ថែមបន្ទាត់នេះ
+          user_id: user.id
         })
         .select()
         .single();
@@ -101,7 +106,8 @@ export default function ExamBuilderPage() {
         <p className="text-gray-500 dark:text-gray-400">ជ្រើសរើសមេរៀនដែលអ្នកចង់ធ្វើតេស្ត</p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-8">
+        {/* ជ្រើសរើសមេរៀន */}
         <div>
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <FileText className="w-5 h-5 text-indigo-500" /> មេរៀនដែលមាន
@@ -110,7 +116,7 @@ export default function ExamBuilderPage() {
           {lessons.length === 0 ? (
              <p className="text-gray-500 text-sm">មិនទាន់មានមេរៀនទេ។ សូមទៅផ្ទុកឯកសារជាមុនសិន។</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
               {lessons.map((lesson) => (
                 <label 
                   key={lesson.id}
@@ -133,26 +139,55 @@ export default function ExamBuilderPage() {
           )}
         </div>
 
-        <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            ចំនួនសំណួរសរុប
-          </label>
-          <input
-            type="number"
-            min={5}
-            max={50}
-            value={totalQuestions}
-            onChange={(e) => setTotalQuestions(Number(e.target.value))}
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-          />
+        {/* ការកំណត់ចំនួន និងកម្រិត */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-500" /> ចំនួនសំណួរសរុប
+            </label>
+            <input
+              type="number"
+              min={5}
+              max={50}
+              value={totalQuestions}
+              onChange={(e) => setTotalQuestions(Number(e.target.value))}
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-lg"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-purple-500" /> កម្រិតពិបាក
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { id: "easy", label: "ងាយស្រួល", color: "text-green-600" },
+                { id: "medium", label: "មធ្យម", color: "text-yellow-600" },
+                { id: "hard", label: "ពិបាក", color: "text-red-600" },
+                { id: "mix", label: "ចម្រុះ", color: "text-indigo-600" },
+              ].map((level) => (
+                <button
+                  key={level.id}
+                  onClick={() => setDifficulty(level.id)}
+                  className={`py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                    difficulty === level.id
+                      ? `border-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 ${level.color} dark:text-white`
+                      : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-indigo-300"
+                  }`}
+                >
+                  {level.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
 
         <button
           onClick={handleGenerate}
           disabled={loading || selectedLessons.length === 0}
-          className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all"
+          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/30"
         >
           {loading ? (
             <><Loader2 className="w-5 h-5 animate-spin" /> កំពុងបង្កើត Exam...</>
