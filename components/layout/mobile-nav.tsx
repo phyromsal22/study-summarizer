@@ -2,23 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, FileText, LayoutDashboard, Trophy, User } from "lucide-react";
+// 👇 បន្ថែម Bot នៅទីនេះដើម្បីដោះស្រាយ Error
+import { BookOpen, FileText, LayoutDashboard, Trophy, User, Bot } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 const routes = [
   { name: "ដើម", path: "/dashboard", icon: LayoutDashboard },
-​​    { name: "សួរ AI", path: "/ask-ai", icon: Bot },
+  { name: "សួរ AI", path: "/ask-ai", icon: Bot },
   { name: "មេរៀន", path: "/lessons", icon: BookOpen },
-  { name: "បង្កើត Exam", path: "/exams/new", icon: FileText },
-  { name: "ប្រវត្តិ", path: "/exams", icon: Trophy },
-  { name: "ប្រវត្តិរូប", path: "/profile", icon: User }, // 👈 ប្តូរទៅ Profile
+  { name: "Exam", path: "/exams/new", icon: FileText },
+  { name: "ប្រវត្តិរូប", path: "/profile", icon: User },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 pb-safe transition-colors duration-300">
       <div className="flex justify-around items-center h-16">
         {routes.map((route) => {
           const isActive = pathname === route.path;
