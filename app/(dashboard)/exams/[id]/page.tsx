@@ -2,8 +2,10 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Download, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 type Question = {
   question: string;
@@ -22,6 +24,7 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
   const [isFinished, setIsFinished] = useState(false);
   const [loading, setLoading] = useState(true);
   const [examTitle, setExamTitle] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
 
   // ទាញយក Exam ពី Supabase
   useEffect(() => {
@@ -76,6 +79,31 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
     setIsFinished(true);
   };
 
+  // 🚀 មុខងារទាញយក PDF
+  const handleDownloadPDF = async () => {
+    const input = document.getElementById("exam-pdf-content");
+    if (!input) return;
+
+    setIsExporting(true);
+    try {
+      // បំប្លែង HTML ទៅជារូបភាព
+      const canvas = await html2canvas(input, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      
+      // បង្កើត PDF (A4)
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${examTitle}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -95,27 +123,97 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
     );
   }
 
+  // ផ្ទាំងបង្ហាញលទ្ធផល និងប៊ូតុងទាញយក PDF
   if (isFinished) {
     const score = calculateScore();
     return (
-      <div className="max-w-2xl mx-auto space-y-6 mt-10 text-center">
-        <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+      <div className="max-w-3xl mx-auto space-y-6 mt-10">
+        {/* ប្រអប់បង្ហាញពិន្ទុ */}
+        <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-center">
           <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">បញ្ចប់ការធ្វើតេស្ត!</h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">
             ពិន្ទុរបស់អ្នក៖ <span className="font-bold text-indigo-600 text-3xl">{score}</span> / {questions.length}
           </p>
-          <button 
-            onClick={() => router.push('/exams')}
-            className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all"
-          >
-            ត្រឡប់ទៅប្រវត្តិតេស្ត
-          </button>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+            <button 
+              onClick={handleDownloadPDF}
+              disabled={isExporting}
+              className="bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+            >
+              {isExporting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+              {isExporting ? "កំពុងបង្កើត PDF..." : "ទាញយកជា PDF"}
+            </button>
+            <button 
+              onClick={() => router.push('/exams')}
+              className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-8 py-3 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+            >
+              ត្រឡប់ទៅប្រវត្តិតេស្ត
+            </button>
+          </div>
+        </div>
+
+        {/* 👇 ផ្នែកដែលនឹងត្រូវបំប្លែងទៅជា PDF 👇 */}
+        <div id="exam-pdf-content" className="bg-white p-8 rounded-2xl border border-gray-200">
+          <div className="text-center mb-8 border-b pb-4">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">{examTitle}</h1>
+            <p className="text-gray-600">ពិន្ទុសរុប: {score} / {questions.length}</p>
+            <p className="text-gray-500 text-sm">កាលបរិច្ឆេទ: {new Date().toLocaleDateString('km-KH')}</p>
+          </div>
+
+          <div className="space-y-8">
+            {questions.map((q, index) => {
+              const userAnswer = answers[index];
+              const isCorrect = userAnswer === q.correct_answer;
+
+              return (
+                <div key={index} className="border-b pb-6 last:border-0">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${
+                      isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 leading-relaxed">
+                      {q.question}
+                    </h3>
+                  </div>
+
+                  <div className="pl-11 space-y-2">
+                    {q.options.map((opt) => {
+                      const isCorrectOpt = opt.id === q.correct_answer;
+                      const isUserChoice = opt.id === userAnswer;
+
+                      let textClass = "text-gray-600";
+                      if (isCorrectOpt) textClass = "text-green-700 font-bold";
+                      else if (isUserChoice && !isCorrectOpt) textClass = "text-red-600 line-through";
+
+                      return (
+                        <div key={opt.id} className={`flex items-center gap-2 ${textClass}`}>
+                          <span className="font-semibold">{opt.id}.</span>
+                          <span>{opt.text}</span>
+                          {isCorrectOpt && <CheckCircle2 className="w-4 h-4 ml-2" />}
+                          {isUserChoice && !isCorrectOpt && <XCircle className="w-4 h-4 ml-2" />}
+                        </div>
+                      );
+                    })}
+                    
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                      <span className="font-semibold text-indigo-600">ការពន្យល់: </span>
+                      {q.explanation}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
   }
 
+  // ផ្ទាំងធ្វើតេស្ត (ដដែល)
   const currentQ = questions[currentIndex];
 
   return (
