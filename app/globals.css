@@ -8,3 +8,33 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* ធ្វើឱ្យ Scrollbar មើលទៅស្អាត */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #c7d2fe; /* indigo-200 */
+  border-radius: 20px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #4f46e5; /* indigo-600 */
+}
+
+/* ពណ៌ពេលអូស Select អត្ថបទ */
+::selection {
+  background-color: #818cf8; /* indigo-400 */
+  color: white;
+}
+
+/* ធ្វើឱ្យការផ្លាស់ប្តូរទំព័រមានភាពរលូន */
+html {
+  scroll-behavior: smooth;
+}

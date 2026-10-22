@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, FileText, Loader2 } from "lucide-react";
+import { Plus, FileText, Loader2, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
-import { StudyTimer } from "@/components/study-timer"; // 👈 ភ្ជាប់ Timer
+import { StudyTimer } from "@/components/study-timer";
 
 type Lesson = {
   id: string;
@@ -15,16 +15,13 @@ type Lesson = {
   file_url?: string;
 };
 
-// Animation សម្រាប់កាតមេរៀននីមួយៗ
 const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
+    scale: 1,
     y: 0,
-    transition: {
-      delay: i * 0.1, // លេចឡើងម្តងមួយៗ
-      duration: 0.4,
-    },
+    transition: { delay: i * 0.08, duration: 0.4, type: "spring" as const, stiffness: 100 },
   }),
 };
 
@@ -43,7 +40,6 @@ export default function DashboardPage() {
       if (!error && data) {
         setLessons(data);
       }
-      // ពន្យារពេលបន្តិចដើម្បីឱ្យឃើញ Skeleton Loading ស្អាត
       setTimeout(() => setLoading(false), 500); 
     };
 
@@ -56,47 +52,66 @@ export default function DashboardPage() {
       {/* ផ្នែកខាងលើ៖ ប្រអប់ Upload និង Study Timer */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* ប្រអប់ Upload (យក ២ ចន្លោះ) */}
-        <div className="md:col-span-2">
+        {/* ប្រអប់ Upload */}
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="md:col-span-2"
+        >
           <Link 
             href="/upload"
-            className="block border-2 border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-2xl p-10 text-center hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer h-full flex flex-col justify-center"
+            className="group block relative overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-3xl p-10 text-center hover:border-indigo-500 dark:hover:border-indigo-400 transition-all cursor-pointer h-full flex flex-col justify-center items-center"
           >
-            <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Plus className="w-8 h-8" />
+            {/* ពន្លឺពណ៌ពេល Hover */}
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/10 dark:to-purple-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            
+            <div className="relative z-10">
+              <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
+                <Plus className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 flex items-center justify-center gap-2">
+                ផ្ទុកឯកសារថ្មី <Sparkles className="w-5 h-5 text-yellow-500" />
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400">អូសឯកសារ PDF មកទីនេះ ឬចុចដើម្បីជ្រើសរើស</p>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">ផ្ទុកឯកសារថ្មី</h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">អូសឯកសារ PDF មកទីនេះ ឬចុចដើម្បីជ្រើសរើស</p>
           </Link>
-        </div>
+        </motion.div>
 
-        {/* Study Timer (យក ១ ចន្លោះ) */}
-        <div>
+        {/* Study Timer */}
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+        >
           <StudyTimer />
-        </div>
+        </motion.div>
       </div>
 
-      {/* ផ្នែកខាងក្រោម៖ បញ្ជីមេរៀន */}
+      {/* បញ្ជីមេរៀន */}
       <div>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">📖 ឯកសាររបស់ខ្ញុំ</h3>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">📖 ឯកសាររបស់ខ្ញុំ</h3>
+          <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">
+            {lessons.length} មេរៀន
+          </span>
+        </div>
         
-        {/* Loading Skeleton ពេលកំពុងទាញទិន្នន័យ */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 animate-pulse">
-                <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4"></div>
-                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+              <div key={n} className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 animate-pulse">
+                <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-xl mb-4"></div>
+                <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3"></div>
+                <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
               </div>
             ))}
           </div>
         ) : lessons.length === 0 ? (
-          <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
-            <p className="text-gray-500 dark:text-gray-400">មិនទាន់មានឯកសារទេ។ សូមផ្ទុកឯកសារដំបូងរបស់អ្នក!</p>
+          <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700">
+            <FileText className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400 text-lg">មិនទាន់មានឯកសារទេ។ សូមផ្ទុកឯកសារដំបូងរបស់អ្នក!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {lessons.map((lesson, index) => (
               <motion.div
                 key={lesson.id}
@@ -107,17 +122,29 @@ export default function DashboardPage() {
               >
                 <Link 
                   href={`/lessons/${lesson.id}`}
-                  className="block bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 hover:shadow-lg transition-all flex flex-col h-full"
+                  className="group block bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all duration-300 flex flex-col h-full relative overflow-hidden"
                 >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5" />
+                  {/* ពន្លឺតូចនៅជ្រុងពេល Hover */}
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                  
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-5">
+                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/40 dark:to-blue-900/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                    </div>
+                    <h4 className="font-bold text-gray-900 dark:text-gray-100 text-lg mb-3 flex-1 line-clamp-2 leading-snug">
+                      {lesson.title}
+                    </h4>
+                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-50 dark:border-gray-700">
+                      <p className="text-xs font-medium text-gray-400 dark:text-gray-500">
+                        {new Date(lesson.created_at).toLocaleDateString('km-KH')}
+                      </p>
+                      <span className="text-indigo-600 dark:text-indigo-400 text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        មើល →
+                      </span>
                     </div>
                   </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2 flex-1 line-clamp-2">{lesson.title}</h4>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(lesson.created_at).toLocaleDateString('km-KH')}
-                  </p>
                 </Link>
               </motion.div>
             ))}
