@@ -130,7 +130,7 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
 
       {/* ផ្ទាំងសង្ខេប */}
       {activeTab === 'summary' && (
-        <div className="bg-white dark:bg-gray-800 p-8 md:p-12 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm animate-in fade-in slide-in-from-bottom-4">
+        <div className="bg-white dark:bg-gray-800 p-6 md:p-10 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm animate-in fade-in slide-in-from-bottom-4">
           
           <div className="flex items-center gap-3 mb-8 pb-4 border-b border-gray-100 dark:border-gray-700">
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/50 dark:to-purple-900/50 rounded-xl flex items-center justify-center">
@@ -142,16 +142,21 @@ export default function LessonDetailPage({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
-          {/* បង្ហាញ Markdown យ៉ាងស្អាត */}
-          <div className="prose prose-lg dark:prose-invert max-w-none 
-            prose-headings:text-gray-900 dark:prose-headings:text-white 
-            prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4 prose-h2:border-b prose-h2:pb-2 prose-h2:border-gray-100 dark:prose-h2:border-gray-700
-            prose-p:text-gray-700 dark:prose-p:text-gray-300 prose-p:leading-loose
-            prose-li:text-gray-700 dark:prose-li:text-gray-300 prose-li:leading-loose
-            prose-strong:text-indigo-600 dark:prose-strong:text-indigo-400 prose-strong:font-bold
-            prose-ul:bg-gray-50 dark:prose-ul:bg-gray-900/50 prose-ul:p-6 prose-ul:rounded-2xl prose-ul:list-disc prose-ul:pl-10
-            ">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {/* បង្ហាញ Markdown ជាមួយ Custom Styling ដ៏ស្អាត */}
+          <div className="text-gray-700 dark:text-gray-300">
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-900 dark:text-white mt-8 mb-4 border-b pb-2" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-xl font-bold text-indigo-700 dark:text-indigo-400 mt-8 mb-4 flex items-center gap-2" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mt-6 mb-3" {...props} />,
+                p: ({node, ...props}) => <p className="mb-4 leading-[2] text-[1.05rem]" {...props} />,
+                ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-6 space-y-3 marker:text-indigo-500" {...props} />,
+                ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-6 space-y-3 marker:text-indigo-500 font-medium" {...props} />,
+                li: ({node, ...props}) => <li className="leading-[1.8] pl-2" {...props} />,
+                strong: ({node, ...props}) => <strong className="font-bold text-gray-900 dark:text-white bg-indigo-50 dark:bg-indigo-900/30 px-1 rounded" {...props} />,
+              }}
+            >
               {lesson.summary}
             </ReactMarkdown>
           </div>
