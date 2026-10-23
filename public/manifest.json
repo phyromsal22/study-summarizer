@@ -1,0 +1,21 @@
+{
+  "name": "StudyAI - សង្ខេបមេរៀនឆ្លាតវៃ",
+  "short_name": "StudyAI",
+  "description": "ប្រព័ន្ធសង្ខេបមេរៀន និងបង្កើតតេស្តដោយ AI",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
