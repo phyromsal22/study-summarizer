@@ -14,17 +14,18 @@ export default function DashboardLayout({
 
       {/* ផ្នែកខ្លឹមសារសំខាន់ */}
       <main className="flex-1 flex flex-col pb-16 md:pb-0">
-        {/* Topbar */}
-        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 md:px-8 transition-colors duration-300">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">សួស្តី, សិស្ស! 👋</h2>
-          
-          <div className="flex items-center gap-4">
-            {/* ប៊ូតុងបិទ/បើក Dark Mode */}
-            <ThemeToggle />
+        {/* 👇 បន្ថែម pt-safe នៅទីនេះ ដើម្បីរុញវាចុះក្រោមម៉ោងទូរស័ព្ទ */}
+        <header className="pt-safe bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
+          <div className="h-16 flex items-center justify-between px-4 md:px-8">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+              សួស្តី, សិស្ស! 👋
+            </h2>
             
-            {/* រូប Profile */}
-            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold">
-              S
+            <div className="flex items-center gap-4">
+              <ThemeToggle />
+              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold">
+                S
+              </div>
             </div>
           </div>
         </header>
