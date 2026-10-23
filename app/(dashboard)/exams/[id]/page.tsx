@@ -26,7 +26,10 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
   const [examTitle, setExamTitle] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
-  // ទាញយក Exam ពី Supabase
+  // 👇 កំណត់ Key សម្រាប់រក្សាទុក Progress ក្នុង Browser
+  const storageKey = `exam_progress_${resolvedParams.id}`;
+
+  // ទាញយក Exam ពី Supabase និងទាញយក Progress ចាស់ពី LocalStorage
   useEffect(() => {
     const fetchExam = async () => {
       const supabase = createClient();
@@ -39,12 +42,31 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
       if (!error && data) {
         setQuestions(data.questions);
         setExamTitle(data.title);
+
+        // 👇 ពិនិត្យមើលថាតើធ្លាប់ធ្វើតេស្តនេះពាក់កណ្តាលឬអត់
+        const savedProgress = localStorage.getItem(storageKey);
+        if (savedProgress) {
+          try {
+            const parsed = JSON.parse(savedProgress);
+            setAnswers(parsed.answers || {});
+            setCurrentIndex(parsed.currentIndex || 0);
+          } catch (e) {
+            console.error("Error parsing saved progress", e);
+          }
+        }
       }
       setLoading(false);
     };
 
     fetchExam();
-  }, [resolvedParams.id]);
+  }, [resolvedParams.id, storageKey]);
+
+  // 👇 រក្សាទុក Progress រាល់ពេលមានការផ្លាស់ប្តូរចម្លើយ ឬសំណួរ
+  useEffect(() => {
+    if (questions.length > 0 && !isFinished) {
+      localStorage.setItem(storageKey, JSON.stringify({ answers, currentIndex }));
+    }
+  }, [answers, currentIndex, questions.length, isFinished, storageKey]);
 
   const handleSelectOption = (optionId: string) => {
     setAnswers({ ...answers, [currentIndex]: optionId });
@@ -75,6 +97,9 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
       .from('exams')
       .update({ score: finalScore, completed: true })
       .eq('id', resolvedParams.id);
+
+    // 👇 លុប Progress ចាស់ចេញពី Browser ព្រោះធ្វើរួចហើយ
+    localStorage.removeItem(storageKey);
 
     setIsFinished(true);
   };
@@ -213,7 +238,7 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  // ផ្ទាំងធ្វើតេស្ត (ដដែល)
+  // ផ្ទាំងធ្វើតេស្ត
   const currentQ = questions[currentIndex];
 
   return (
