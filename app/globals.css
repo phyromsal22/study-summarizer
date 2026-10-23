@@ -20,21 +20,31 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #c7d2fe; /* indigo-200 */
+  background-color: #c7d2fe;
   border-radius: 20px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background-color: #4f46e5; /* indigo-600 */
+  background-color: #4f46e5;
 }
 
 /* ពណ៌ពេលអូស Select អត្ថបទ */
 ::selection {
-  background-color: #818cf8; /* indigo-400 */
+  background-color: #818cf8;
   color: white;
 }
 
 /* ធ្វើឱ្យការផ្លាស់ប្តូរទំព័រមានភាពរលូន */
 html {
   scroll-behavior: smooth;
+}
+
+/* 👇 បន្ថែមកូដសម្រាប់ Safe Area ដើម្បីកុំឱ្យបាំង Notch ឬ របារខាងក្រោម */
+@supports (padding: max(0px)) {
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .pt-safe {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
 }

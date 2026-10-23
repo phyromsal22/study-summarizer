@@ -17,7 +17,8 @@ export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 pb-safe transition-colors duration-300">
+    // 👇 បន្ថែម pb-safe និងពណ៌ខ្មៅសម្រាប់របារខាងក្រោម
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 pb-safe transition-colors duration-300">
       <div className="flex justify-around items-center h-16">
         {routes.map((route) => {
           const isActive = pathname === route.path;
