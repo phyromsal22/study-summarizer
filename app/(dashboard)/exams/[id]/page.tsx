@@ -26,10 +26,8 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
   const [examTitle, setExamTitle] = useState("");
   const [isExporting, setIsExporting] = useState(false);
 
-  // 👇 កំណត់ Key សម្រាប់រក្សាទុក Progress ក្នុង Browser
   const storageKey = `exam_progress_${resolvedParams.id}`;
 
-  // ទាញយក Exam ពី Supabase និងទាញយក Progress ចាស់ពី LocalStorage
   useEffect(() => {
     const fetchExam = async () => {
       const supabase = createClient();
@@ -42,16 +40,21 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
       if (!error && data) {
         setQuestions(data.questions);
         setExamTitle(data.title);
-
-        // 👇 ពិនិត្យមើលថាតើធ្លាប់ធ្វើតេស្តនេះពាក់កណ្តាលឬអត់
-        const savedProgress = localStorage.getItem(storageKey);
-        if (savedProgress) {
-          try {
-            const parsed = JSON.parse(savedProgress);
-            setAnswers(parsed.answers || {});
-            setCurrentIndex(parsed.currentIndex || 0);
-          } catch (e) {
-            console.error("Error parsing saved progress", e);
+        
+        // ប្រសិនបើ Exam នេះធ្លាប់ធ្វើរួចហើយ មិនចាំបាច់ទាញយក Progress ទេ
+        if (data.completed) {
+          setIsFinished(true);
+        } else {
+          // ទាញយកចម្លើយចាស់ និងទំព័រចាស់មកវិញ
+          const savedProgress = localStorage.getItem(storageKey);
+          if (savedProgress) {
+            try {
+              const parsed = JSON.parse(savedProgress);
+              setAnswers(parsed.answers || {});
+              setCurrentIndex(parsed.currentIndex || 0);
+            } catch (e) {
+              console.error("Error parsing saved progress", e);
+            }
           }
         }
       }
@@ -61,23 +64,31 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
     fetchExam();
   }, [resolvedParams.id, storageKey]);
 
-  // 👇 រក្សាទុក Progress រាល់ពេលមានការផ្លាស់ប្តូរចម្លើយ ឬសំណួរ
-  useEffect(() => {
-    if (questions.length > 0 && !isFinished) {
-      localStorage.setItem(storageKey, JSON.stringify({ answers, currentIndex }));
-    }
-  }, [answers, currentIndex, questions.length, isFinished, storageKey]);
+  // 👇 មុខងាររក្សាទុកទិន្នន័យភ្លាមៗ (ជួយការពារការបាត់ទិន្នន័យពេលចុចចេញរវល់)
+  const saveProgress = (newAnswers: Record<number, string>, newIndex: number) => {
+    localStorage.setItem(storageKey, JSON.stringify({ answers: newAnswers, currentIndex: newIndex }));
+  };
 
   const handleSelectOption = (optionId: string) => {
-    setAnswers({ ...answers, [currentIndex]: optionId });
+    const newAnswers = { ...answers, [currentIndex]: optionId };
+    setAnswers(newAnswers);
+    saveProgress(newAnswers, currentIndex); // រក្សាទុកភ្លាមៗ
   };
 
   const handleNext = () => {
-    if (currentIndex < questions.length - 1) setCurrentIndex(currentIndex + 1);
+    if (currentIndex < questions.length - 1) {
+      const nextIndex = currentIndex + 1;
+      setCurrentIndex(nextIndex);
+      saveProgress(answers, nextIndex); // រក្សាទុកភ្លាមៗ
+    }
   };
 
   const handlePrev = () => {
-    if (currentIndex > 0) setCurrentIndex(currentIndex - 1);
+    if (currentIndex > 0) {
+      const prevIndex = currentIndex - 1;
+      setCurrentIndex(prevIndex);
+      saveProgress(answers, prevIndex); // រក្សាទុកភ្លាមៗ
+    }
   };
 
   const calculateScore = () => {
@@ -91,31 +102,25 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
   const handleFinish = async () => {
     const finalScore = calculateScore();
     
-    // រក្សាទុកពិន្ទុចូល Supabase
     const supabase = createClient();
     await supabase
       .from('exams')
       .update({ score: finalScore, completed: true })
       .eq('id', resolvedParams.id);
 
-    // 👇 លុប Progress ចាស់ចេញពី Browser ព្រោះធ្វើរួចហើយ
     localStorage.removeItem(storageKey);
-
     setIsFinished(true);
   };
 
-  // 🚀 មុខងារទាញយក PDF
   const handleDownloadPDF = async () => {
     const input = document.getElementById("exam-pdf-content");
     if (!input) return;
 
     setIsExporting(true);
     try {
-      // បំប្លែង HTML ទៅជារូបភាព
       const canvas = await html2canvas(input, { scale: 2 });
       const imgData = canvas.toDataURL("image/png");
       
-      // បង្កើត PDF (A4)
       const pdf = new jsPDF("p", "mm", "a4");
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
@@ -148,12 +153,10 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  // ផ្ទាំងបង្ហាញលទ្ធផល និងប៊ូតុងទាញយក PDF
   if (isFinished) {
     const score = calculateScore();
     return (
       <div className="max-w-3xl mx-auto space-y-6 mt-10">
-        {/* ប្រអប់បង្ហាញពិន្ទុ */}
         <div className="bg-white dark:bg-gray-800 p-10 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm text-center">
           <CheckCircle2 className="w-20 h-20 text-green-500 mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">បញ្ចប់ការធ្វើតេស្ត!</h1>
@@ -179,7 +182,6 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        {/* 👇 ផ្នែកដែលនឹងត្រូវបំប្លែងទៅជា PDF 👇 */}
         <div id="exam-pdf-content" className="bg-white p-8 rounded-2xl border border-gray-200">
           <div className="text-center mb-8 border-b pb-4">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">{examTitle}</h1>
@@ -238,7 +240,6 @@ export default function ExamRunnerPage({ params }: { params: Promise<{ id: strin
     );
   }
 
-  // ផ្ទាំងធ្វើតេស្ត
   const currentQ = questions[currentIndex];
 
   return (
