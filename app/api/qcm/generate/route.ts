@@ -12,22 +12,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "មិនមានអត្ថបទសង្ខេបទេ" }, { status: 400 });
     }
 
-    // កំណត់ពាក្យសម្រាប់បញ្ជា AI តាមកម្រិតពិបាក
     let difficultyPrompt = "";
     if (difficulty === 'easy') {
-      difficultyPrompt = "កម្រិត៖ ងាយស្រួល (សួរតែអត្ថន័យផ្ទាល់ ឬពាក្យគន្លឹះច្បាស់ៗ មិនត្រូវការត្រិះរិះច្រើន)";
+      difficultyPrompt = "កម្រិត៖ ងាយស្រួល (សួរតែអត្ថន័យផ្ទាល់ ឬពាក្យគន្លឹះច្បាស់ៗ)";
     } else if (difficulty === 'hard') {
-      difficultyPrompt = "កម្រិត៖ ពិបាក (សួរឱ្យមានការត្រិះរិះពិចារណា វិភាគ ឬភ្ជាប់ចំណុចផ្សេងៗគ្នា ហើយជម្រើសខុសត្រូវមានលក្ខណៈស្រដៀងគ្នាខ្លាំង)";
+      difficultyPrompt = "កម្រិត៖ ពិបាក (សួរឱ្យមានការត្រិះរិះពិចារណា វិភាគ ឬភ្ជាប់ចំណុចផ្សេងៗគ្នា)";
     } else if (difficulty === 'mix') {
       difficultyPrompt = "កម្រិត៖ ចម្រុះ (សូមលាយបញ្ចូលគ្នារវាងសំណួរងាយ មធ្យម និងពិបាក)";
     } else {
       difficultyPrompt = "កម្រិត៖ មធ្យម (សួរអំពីការយល់ដឹង និងការអនុវត្តជាមូលដ្ឋាន)";
     }
 
+    // 👇 កែប្រែ Prompt នៅទីនេះ ដើម្បីចែកចាយចម្លើយ A B C D 👇
     const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរតេស្តខ្លីៗ (QCM)។
 សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${questionCount} ពីអត្ថបទសង្ខេបខាងក្រោម។
 ${difficultyPrompt}
+
+ច្បាប់សំខាន់៖
+សូមចែកចាយចម្លើយត្រូវឱ្យស្មើៗគ្នារវាងជម្រើស A, B, C និង D។ ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
 
 ទម្រង់ត្រូវតែជា JSON ដូចនេះ៖
 {
@@ -40,7 +43,7 @@ ${difficultyPrompt}
         {"id": "C", "text": "ជម្រើស C"},
         {"id": "D", "text": "ជម្រើស D"}
       ],
-      "correct_answer": "A",
+      "correct_answer": "អាចជា A, B, C ឬ D",
       "explanation": "ការពន្យល់ខ្លីៗពីមូលហេតុដែលជាចម្លើយត្រូវ"
     }
   ]
@@ -57,7 +60,7 @@ ${summary}
       model,
       messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
+      temperature: 0.8, // បង្កើនបន្តិចដើម្បីឱ្យវាបង្កើតចម្លើយចម្រុះ
     });
 
     const data = JSON.parse(response.choices[0].message.content!);
