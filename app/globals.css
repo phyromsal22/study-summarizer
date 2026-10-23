@@ -7,12 +7,14 @@
 
 body {
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* ធ្វើឱ្យ Scrollbar មើលទៅស្អាត */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -20,17 +22,17 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #c7d2fe;
+  background-color: #c7d2fe; /* indigo-200 */
   border-radius: 20px;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background-color: #4f46e5;
+  background-color: #4f46e5; /* indigo-600 */
 }
 
 /* ពណ៌ពេលអូស Select អត្ថបទ */
 ::selection {
-  background-color: #818cf8;
+  background-color: #818cf8; /* indigo-400 */
   color: white;
 }
 

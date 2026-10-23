@@ -47,14 +47,15 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="hidden md:flex w-64 flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 min-h-screen transition-colors duration-300">
-      <div className="h-16 flex items-center px-6 border-b border-gray-100 dark:border-gray-700">
-        <h1 className="text-xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-          <span className="text-2xl">📚</span> StudyAI
+    <aside className="hidden md:flex w-64 flex-col bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-800/50 min-h-screen transition-all duration-300">
+      <div className="h-20 flex items-center px-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">📚</div>
+          StudyAI
         </h1>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto pt-4">
         {routes.map((route) => {
           const isActive = pathname === route.path;
           return (
@@ -62,32 +63,37 @@ export function Sidebar() {
               key={route.path}
               href={route.path}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium",
+                "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-200 font-medium group",
                 isActive 
-                  ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" 
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30" 
+                  : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-white"
               )}
             >
-              <route.icon className={cn("w-5 h-5", isActive ? "text-indigo-600 dark:text-indigo-400" : "text-gray-400")} />
+              <route.icon className={cn(
+                "w-5 h-5 transition-transform group-hover:scale-110", 
+                isActive ? "text-white" : "text-gray-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400"
+              )} />
               {route.name}
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 p-4 rounded-xl text-center border border-orange-100 dark:border-orange-900/50">
+      <div className="p-4 space-y-4">
+        {/* ប្រអប់ Streak */}
+        <div className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30 text-center relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-orange-200/50 dark:bg-orange-700/30 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-150" />
           <p className="text-sm font-bold text-orange-600 dark:text-orange-400 mb-1 flex items-center justify-center gap-1">
             🔥 {streak} ថ្ងៃជាប់គ្នា!
           </p>
-          <p className="text-xs text-orange-500/80 dark:text-orange-300/80">
+          <p className="text-xs text-orange-500/80 dark:text-orange-300/80 relative z-10">
             {streak > 0 ? "បន្តខិតខំរៀនរាល់ថ្ងៃណា!" : "ចាប់ផ្តើមរៀនថ្ងៃនេះ!"}
           </p>
         </div>
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 font-medium transition-all"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 font-medium transition-all"
         >
           <LogOut className="w-5 h-5" />
           ចាកចេញ (Logout)
