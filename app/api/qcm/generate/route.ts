@@ -23,10 +23,19 @@ export async function POST(req: NextRequest) {
       difficultyPrompt = "កម្រិត៖ មធ្យម (សួរអំពីការយល់ដឹង និងការអនុវត្តជាមូលដ្ឋាន)";
     }
 
-    // 👇 កែប្រែ Prompt នៅទីនេះ ដើម្បីចែកចាយចម្លើយ A B C D 👇
-    const prompt = `
+    const client = getClient('qcm');
+    const model = getModel('qcm');
+
+    let allQuestions: any[] = [];
+    let remaining = questionCount;
+    const batchSize = 10; // បង្កើត ១០ សំណួរក្នុងមួយដង ដើម្បីកុំឱ្យលើស Token កំណត់
+
+    while (remaining > 0) {
+      const currentBatchSize = Math.min(remaining, batchSize);
+
+      const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរតេស្តខ្លីៗ (QCM)។
-សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${questionCount} ពីអត្ថបទសង្ខេបខាងក្រោម។
+សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${currentBatchSize} ពីអត្ថបទសង្ខេបខាងក្រោម។
 ${difficultyPrompt}
 
 ច្បាប់សំខាន់៖
@@ -43,8 +52,8 @@ ${difficultyPrompt}
         {"id": "C", "text": "ជម្រើស C"},
         {"id": "D", "text": "ជម្រើស D"}
       ],
-      "correct_answer": "អាចជា A, B, C ឬ D",
-      "explanation": "ការពន្យល់ខ្លីៗពីមូលហេតុដែលជាចម្លើយត្រូវ"
+      "correct_answer": "A",
+      "explanation": "ការពន្យល់ខ្លីៗ"
     }
   ]
 }
@@ -53,19 +62,21 @@ ${difficultyPrompt}
 ${summary}
 `;
 
-    const client = getClient('qcm');
-    const model = getModel('qcm');
+      const response = await client.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 4000, // បង្កើនកម្រិតអក្សរអាចសរសេរបាន
+      });
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.8, // បង្កើនបន្តិចដើម្បីឱ្យវាបង្កើតចម្លើយចម្រុះ
-    });
+      const data = JSON.parse(response.choices[0].message.content!);
+      allQuestions.push(...data.questions);
+      
+      remaining -= currentBatchSize;
+    }
 
-    const data = JSON.parse(response.choices[0].message.content!);
-
-    return NextResponse.json({ questions: data.questions });
+    return NextResponse.json({ questions: allQuestions });
 
   } catch (error: any) {
     console.error("🔥 QCM API ERROR:", error);

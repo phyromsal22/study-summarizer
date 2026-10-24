@@ -23,10 +23,19 @@ export async function POST(req: NextRequest) {
       difficultyPrompt = "កម្រិត៖ មធ្យម (សួរអំពីការយល់ដឹង និងការអនុវត្តជាមូលដ្ឋាន)";
     }
 
-    // 👇 កែប្រែ Prompt នៅទីនេះ ដើម្បីចែកចាយចម្លើយ A B C D 👇
-    const prompt = `
+    const client = getClient('exam');
+    const model = getModel('exam');
+
+    let allQuestions: any[] = [];
+    let remaining = totalQuestions;
+    const batchSize = 10;
+
+    while (remaining > 0) {
+      const currentBatchSize = Math.min(remaining, batchSize);
+
+      const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរប្រឡង។
-សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${totalQuestions} ពីអត្ថបទខាងក្រោម។
+សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${currentBatchSize} ពីអត្ថបទខាងក្រោម។
 ${difficultyPrompt}
 
 ច្បាប់សំខាន់៖
@@ -43,7 +52,7 @@ ${difficultyPrompt}
         {"id": "C", "text": "ជម្រើស C"},
         {"id": "D", "text": "ជម្រើស D"}
       ],
-      "correct_answer": "អាចជា A, B, C ឬ D",
+      "correct_answer": "A",
       "explanation": "ការពន្យល់ខ្លីៗ"
     }
   ]
@@ -53,20 +62,22 @@ ${difficultyPrompt}
 ${contextText}
 `;
 
-    const client = getClient('exam');
-    const model = getModel('exam');
+      const response = await client.chat.completions.create({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: 'json_object' },
+        temperature: 0.7,
+        max_tokens: 4000,
+      });
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.8, // បង្កើនបន្តិចដើម្បីឱ្យវាបង្កើតចម្លើយចម្រុះ
-    });
-
-    const data = JSON.parse(response.choices[0].message.content!);
+      const data = JSON.parse(response.choices[0].message.content!);
+      allQuestions.push(...data.questions);
+      
+      remaining -= currentBatchSize;
+    }
 
     return NextResponse.json({ 
-      questions: data.questions 
+      questions: allQuestions 
     });
 
   } catch (error: any) {
