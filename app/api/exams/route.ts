@@ -3,21 +3,39 @@ import { getClient, getModel } from '@/lib/ai/router';
 
 export const maxDuration = 60;
 
-function cleanJSONString(str: string) {
+// 👇 មុខងារសម្អាត JSON ដ៏មានឥទ្ធិពល (ការពារ Error 100%)
+function cleanAndParseJSON(str: string) {
   let cleaned = str.trim();
+  
+  // ១. លុបសញ្ញា Markdown បើមាន
   if (cleaned.startsWith("```json")) {
     cleaned = cleaned.replace(/```json/g, "").replace(/```/g, "").trim();
   } else if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/```/g, "").trim();
   }
+
+  // ២. កាត់យកតែចន្លោះពី { ដល់ }
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
   if (start !== -1 && end !== -1) {
     cleaned = cleaned.substring(start, end + 1);
   }
-  return cleaned;
+
+  // ៣. ជួសជុលករណី AI បន្ថែមសញ្ញាក្បៀសលើស (Trailing commas)
+  cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
+  // ៤. ជួសជុលករណី AI ដាក់ Enter (Newline) ក្នុងអត្ថបទ ដែលធ្វើឱ្យ JSON ខូច
+  cleaned = cleaned.replace(/(?<!^)\n/g, '\\n');
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    console.error("❌ Failed to parse JSON. Raw text:", cleaned);
+    throw new Error("AI បង្កើតទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ (JSON Error)។ សូមព្យាយាមម្តងទៀត។");
+  }
 }
 
+// 👇 មុខងារឆ្លាស់ទីតាំងចម្លើយ
 function shuffleQuestionOptions(question: any) {
   if (!question || !question.options || !Array.isArray(question.options)) return question;
   const correctOption = question.options.find((opt: any) => opt.id === question.correct_answer);
@@ -48,7 +66,6 @@ function shuffleQuestionOptions(question: any) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    // 👇 API នេះនឹងទទួលតែចំនួនតូច (ឧ. ៥ សំណួរ) ពី Frontend តែម្តង
     const { contextText, totalQuestions, difficulty = 'medium' } = body;
 
     if (!contextText || contextText.trim() === "") {
@@ -69,9 +86,11 @@ export async function POST(req: NextRequest) {
 សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${totalQuestions} ពីអត្ថបទខាងក្រោម។
 ${difficultyPrompt}
 
-ច្បាប់ដាច់ខាត៖
-១. ទម្រង់ត្រូវតែជា JSON ត្រឹមត្រូវ ១០០%។
+ច្បាប់ដាច់ខាត ១០០%៖
+១. ទម្រង់ត្រូវតែជា JSON ត្រឹមត្រូវ។
 ២. ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
+៣. ហាមប្រើប្រាស់សញ្ញាសម្រង់ពីរ (") នៅក្នុងអត្ថបទសំណួរ ឬចម្លើយ។ ប្រើតែសញ្ញាសម្រង់វិញ្ញាសា ('') ជំនួសវិញ។
+៤. ហាមដាក់អក្សរផ្សេងៗ ក្រៅពី JSON។
 
 ទម្រង់ JSON៖
 {
@@ -101,18 +120,17 @@ ${contextText}
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 2000, // ៥ សំណួរមិនត្រូវការ Token ច្រើនទេ
+      temperature: 0.5, // បន្ថយបន្តិចដើម្បីឱ្យវាសរសេរ JSON បានត្រឹមត្រូវជាងមុន
+      max_tokens: 4000,
     });
 
     const content = response.choices[0].message.content;
     if (!content) throw new Error("AI returned empty content");
 
-    const cleanedData = cleanJSONString(content);
-    const data = JSON.parse(cleanedData);
+    const data = cleanAndParseJSON(content);
     
     if (!data.questions || !Array.isArray(data.questions)) {
-        throw new Error("Invalid JSON structure from AI");
+        throw new Error("ទម្រង់ JSON មិនត្រឹមត្រូវ");
     }
 
     const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));

@@ -24,7 +24,6 @@ export default function ExamBuilderPage() {
   useEffect(() => {
     const fetchLessons = async () => {
       const supabase = createClient();
-      // 👇 ត្រងយកតែមេរៀនដែលមានចំណងជើងពិត និងមានសង្ខេប
       const { data } = await supabase
         .from('lessons')
         .select('id, title, summary')
@@ -35,7 +34,7 @@ export default function ExamBuilderPage() {
           l.title && 
           l.summary && 
           l.summary.trim() !== "" && 
-          !l.title.match(/^[0-9a-f]{8}-[0-9a-f]{4}/i) // មិនយកឈ្មោះជា ID វែងៗ
+          !l.title.match(/^[0-9a-f]{8}-[0-9a-f]{4}/i)
         );
         setLessons(validLessons);
       }
@@ -69,7 +68,6 @@ export default function ExamBuilderPage() {
 
       if (!combinedText) throw new Error("មេរៀនដែលបានជ្រើសរើសមិនមានសង្ខេបទេ");
 
-      // 👇 ចាប់ផ្តើមបំបែកការហៅ API ជាក្រុមៗ (៥ សំណួរក្នុងមួយដង)
       let allGeneratedQuestions: any[] = [];
       let remaining = totalQuestions;
       const batchSize = 5;
@@ -104,7 +102,6 @@ export default function ExamBuilderPage() {
 
       setProgressText("កំពុងរក្សាទុក...");
 
-      // រក្សាទុកចូល Database
       const { data: newExam, error: dbError } = await supabase
         .from('exams')
         .insert({
