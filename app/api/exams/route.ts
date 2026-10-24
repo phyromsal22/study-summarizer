@@ -3,6 +3,37 @@ import { getClient, getModel } from '@/lib/ai/router';
 
 export const maxDuration = 60;
 
+// 👇 មុខងារសម្រាប់ឆ្លាស់ទីតាំងចម្លើយ (Shuffle)
+function shuffleQuestionOptions(question: any) {
+  const correctOption = question.options.find((opt: any) => opt.id === question.correct_answer);
+  if (!correctOption) return question;
+
+  const correctText = correctOption.text;
+  const shuffledOptions = [...question.options];
+  
+  for (let i = shuffledOptions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+  }
+
+  const ids = ['A', 'B', 'C', 'D'];
+  let newCorrectAnswer = 'A';
+
+  const updatedOptions = shuffledOptions.map((opt, index) => {
+    const newId = ids[index];
+    if (opt.text === correctText) {
+      newCorrectAnswer = newId;
+    }
+    return { ...opt, id: newId };
+  });
+
+  return {
+    ...question,
+    options: updatedOptions,
+    correct_answer: newCorrectAnswer
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -14,13 +45,13 @@ export async function POST(req: NextRequest) {
 
     let difficultyPrompt = "";
     if (difficulty === 'easy') {
-      difficultyPrompt = "កម្រិត៖ ងាយស្រួល (សួរតែអត្ថន័យផ្ទាល់ ឬពាក្យគន្លឹះច្បាស់ៗ)";
+      difficultyPrompt = "កម្រិត៖ ងាយស្រួល";
     } else if (difficulty === 'hard') {
-      difficultyPrompt = "កម្រិត៖ ពិបាក (សួរឱ្យមានការត្រិះរិះពិចារណា វិភាគ ឬភ្ជាប់ចំណុចផ្សេងៗគ្នា)";
+      difficultyPrompt = "កម្រិត៖ ពិបាក";
     } else if (difficulty === 'mix') {
-      difficultyPrompt = "កម្រិត៖ ចម្រុះ (សូមលាយបញ្ចូលគ្នារវាងសំណួរងាយ មធ្យម និងពិបាក)";
+      difficultyPrompt = "កម្រិត៖ ចម្រុះ";
     } else {
-      difficultyPrompt = "កម្រិត៖ មធ្យម (សួរអំពីការយល់ដឹង និងការអនុវត្តជាមូលដ្ឋាន)";
+      difficultyPrompt = "កម្រិត៖ មធ្យម";
     }
 
     const client = getClient('exam');
@@ -37,9 +68,6 @@ export async function POST(req: NextRequest) {
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរប្រឡង។
 សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${currentBatchSize} ពីអត្ថបទខាងក្រោម។
 ${difficultyPrompt}
-
-ច្បាប់សំខាន់៖
-សូមចែកចាយចម្លើយត្រូវឱ្យស្មើៗគ្នារវាងជម្រើស A, B, C និង D។ ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
 
 ទម្រង់ត្រូវតែជា JSON ដូចនេះ៖
 {
@@ -71,8 +99,11 @@ ${contextText}
       });
 
       const data = JSON.parse(response.choices[0].message.content!);
-      allQuestions.push(...data.questions);
       
+      // 👇 ឆ្លាស់ទីតាំងចម្លើយ A, B, C, D
+      const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
+      
+      allQuestions.push(...shuffledBatch);
       remaining -= currentBatchSize;
     }
 

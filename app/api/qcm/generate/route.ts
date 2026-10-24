@@ -3,6 +3,38 @@ import { getClient, getModel } from '@/lib/ai/router';
 
 export const maxDuration = 60;
 
+// 👇 មុខងារសម្រាប់ឆ្លាស់ទីតាំងចម្លើយ (Shuffle)
+function shuffleQuestionOptions(question: any) {
+  const correctOption = question.options.find((opt: any) => opt.id === question.correct_answer);
+  if (!correctOption) return question; // ការពារ Error បើរកមិនឃើញ
+
+  const correctText = correctOption.text;
+  const shuffledOptions = [...question.options];
+  
+  // ឆ្លាស់ទីតាំងដោយចៃដន្យ (Fisher-Yates)
+  for (let i = shuffledOptions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
+  }
+
+  const ids = ['A', 'B', 'C', 'D'];
+  let newCorrectAnswer = 'A';
+
+  const updatedOptions = shuffledOptions.map((opt, index) => {
+    const newId = ids[index];
+    if (opt.text === correctText) {
+      newCorrectAnswer = newId;
+    }
+    return { ...opt, id: newId };
+  });
+
+  return {
+    ...question,
+    options: updatedOptions,
+    correct_answer: newCorrectAnswer
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -28,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     let allQuestions: any[] = [];
     let remaining = questionCount;
-    const batchSize = 10; // បង្កើត ១០ សំណួរក្នុងមួយដង ដើម្បីកុំឱ្យលើស Token កំណត់
+    const batchSize = 10;
 
     while (remaining > 0) {
       const currentBatchSize = Math.min(remaining, batchSize);
@@ -37,9 +69,6 @@ export async function POST(req: NextRequest) {
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរតេស្តខ្លីៗ (QCM)។
 សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${currentBatchSize} ពីអត្ថបទសង្ខេបខាងក្រោម។
 ${difficultyPrompt}
-
-ច្បាប់សំខាន់៖
-សូមចែកចាយចម្លើយត្រូវឱ្យស្មើៗគ្នារវាងជម្រើស A, B, C និង D។ ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
 
 ទម្រង់ត្រូវតែជា JSON ដូចនេះ៖
 {
@@ -67,12 +96,15 @@ ${summary}
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.7,
-        max_tokens: 4000, // បង្កើនកម្រិតអក្សរអាចសរសេរបាន
+        max_tokens: 4000,
       });
 
       const data = JSON.parse(response.choices[0].message.content!);
-      allQuestions.push(...data.questions);
       
+      // 👇 ឆ្លាស់ទីតាំងចម្លើយ A, B, C, D មុនពេលរក្សាទុក
+      const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
+      
+      allQuestions.push(...shuffledBatch);
       remaining -= currentBatchSize;
     }
 
