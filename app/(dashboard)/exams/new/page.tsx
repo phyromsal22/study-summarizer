@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 type Lesson = {
   id: string;
   title: string;
+  summary: string;
 };
 
 export default function ExamBuilderPage() {
@@ -15,16 +16,24 @@ export default function ExamBuilderPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(10);
-  const [difficulty, setDifficulty] = useState("medium"); // 👈 បន្ថែម State កម្រិត
+  const [difficulty, setDifficulty] = useState("medium");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // ទាញយកមេរៀនពី Supabase
+  // ទាញយកមេរៀនពី Supabase (ត្រងយកតែមេរៀនដែលមានសង្ខេប)
   useEffect(() => {
     const fetchLessons = async () => {
       const supabase = createClient();
-      const { data } = await supabase.from('lessons').select('id, title');
-      if (data) setLessons(data);
+      const { data } = await supabase
+        .from('lessons')
+        .select('id, title, summary')
+        .order('created_at', { ascending: false });
+        
+      if (data) {
+        // ត្រងយកតែមេរៀនដែលមាន summary ត្រឹមត្រូវ
+        const validLessons = data.filter((l: any) => l.summary && l.summary.trim() !== "");
+        setLessons(validLessons);
+      }
     };
     fetchLessons();
   }, []);
@@ -47,35 +56,35 @@ export default function ExamBuilderPage() {
     try {
       const supabase = createClient();
       
-      // ទាញយកព័ត៌មានអ្នកប្រើប្រាស់បច្ចុប្បន្ន
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("សូម Login ជាមុនសិន");
 
-      // ទាញយកសង្ខេបនៃមេរៀនដែលបានជ្រើស
-      const { data: lessonData, error: fetchError } = await supabase
-        .from('lessons')
-        .select('summary')
-        .in('id', selectedLessons);
+      const selectedLessonData = lessons.filter(l => selectedLessons.includes(l.id));
+      const combinedText = selectedLessonData.map(l => `មេរៀន៖ ${l.title}\n${l.summary}`).join("\n\n---\n\n");
 
-      if (fetchError || !lessonData) throw new Error("មិនអាចទាញយកមេរៀនបានទេ");
+      if (!combinedText) throw new Error("មេរៀនដែលបានជ្រើសរើសមិនមានសង្ខេបទេ");
 
-      const combinedText = lessonData.map(l => l.summary).join("\n\n");
-
-      // ហៅ API បង្កើតសំណួរ
       const res = await fetch("/api/exams", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           contextText: combinedText, 
           totalQuestions,
-          difficulty // 👈 បញ្ជូនកម្រិតទៅ API
+          difficulty
         }),
       });
 
-      const data = await res.json();
+      // 👇 ការពារការគាំងពេល API បញ្ជូន HTML មកវិញជំនួសឱ្យ JSON
+      const textResponse = await res.text();
+      let data;
+      try {
+        data = JSON.parse(textResponse);
+      } catch (parseError) {
+        throw new Error(`ប្រព័ន្ធមានបញ្ហាក្នុងការទាញយកទិន្នន័យ (${res.status})។ សូមព្យាយាមម្តងទៀត។`);
+      }
+
       if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
 
-      // រក្សាទុក Exam ចូល Supabase Database
       const { data: newExam, error: dbError } = await supabase
         .from('exams')
         .insert({
@@ -114,7 +123,7 @@ export default function ExamBuilderPage() {
           </h2>
           
           {lessons.length === 0 ? (
-             <p className="text-gray-500 text-sm">មិនទាន់មានមេរៀនទេ។ សូមទៅផ្ទុកឯកសារជាមុនសិន។</p>
+             <p className="text-gray-500 text-sm">មិនទាន់មានមេរៀនដែលមានសង្ខេបទេ។ សូមទៅផ្ទុកឯកសារជាមុនសិន។</p>
           ) : (
             <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
               {lessons.map((lesson) => (
@@ -132,7 +141,9 @@ export default function ExamBuilderPage() {
                     checked={selectedLessons.includes(lesson.id)}
                     onChange={() => toggleLesson(lesson.id)}
                   />
-                  <span className="ml-3 font-medium text-gray-900 dark:text-gray-100 flex-1">{lesson.title}</span>
+                  <span className="ml-3 font-medium text-gray-900 dark:text-gray-100 flex-1 line-clamp-2">
+                    {lesson.title}
+                  </span>
                 </label>
               ))}
             </div>
@@ -182,7 +193,7 @@ export default function ExamBuilderPage() {
           </div>
         </div>
 
-        {error && <p className="text-red-500 text-sm font-medium">{error}</p>}
+        {error && <p className="text-red-500 text-sm font-medium bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/50">{error}</p>}
 
         <button
           onClick={handleGenerate}
