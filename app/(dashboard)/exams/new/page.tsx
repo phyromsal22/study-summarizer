@@ -18,20 +18,25 @@ export default function ExamBuilderPage() {
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [difficulty, setDifficulty] = useState("medium");
   const [loading, setLoading] = useState(false);
+  const [progressText, setProgressText] = useState("");
   const [error, setError] = useState("");
 
-  // ទាញយកមេរៀនពី Supabase (ត្រងយកតែមេរៀនដែលមានសង្ខេប)
   useEffect(() => {
     const fetchLessons = async () => {
       const supabase = createClient();
+      // 👇 ត្រងយកតែមេរៀនដែលមានចំណងជើងពិត និងមានសង្ខេប
       const { data } = await supabase
         .from('lessons')
         .select('id, title, summary')
         .order('created_at', { ascending: false });
         
       if (data) {
-        // ត្រងយកតែមេរៀនដែលមាន summary ត្រឹមត្រូវ
-        const validLessons = data.filter((l: any) => l.summary && l.summary.trim() !== "");
+        const validLessons = data.filter((l: any) => 
+          l.title && 
+          l.summary && 
+          l.summary.trim() !== "" && 
+          !l.title.match(/^[0-9a-f]{8}-[0-9a-f]{4}/i) // មិនយកឈ្មោះជា ID វែងៗ
+        );
         setLessons(validLessons);
       }
     };
@@ -52,10 +57,10 @@ export default function ExamBuilderPage() {
 
     setLoading(true);
     setError("");
+    setProgressText("កំពុងរៀបចំ...");
 
     try {
       const supabase = createClient();
-      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("សូម Login ជាមុនសិន");
 
@@ -64,33 +69,48 @@ export default function ExamBuilderPage() {
 
       if (!combinedText) throw new Error("មេរៀនដែលបានជ្រើសរើសមិនមានសង្ខេបទេ");
 
-      const res = await fetch("/api/exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          contextText: combinedText, 
-          totalQuestions,
-          difficulty
-        }),
-      });
+      // 👇 ចាប់ផ្តើមបំបែកការហៅ API ជាក្រុមៗ (៥ សំណួរក្នុងមួយដង)
+      let allGeneratedQuestions: any[] = [];
+      let remaining = totalQuestions;
+      const batchSize = 5;
 
-      // 👇 ការពារការគាំងពេល API បញ្ជូន HTML មកវិញជំនួសឱ្យ JSON
-      const textResponse = await res.text();
-      let data;
-      try {
-        data = JSON.parse(textResponse);
-      } catch (parseError) {
-        throw new Error(`ប្រព័ន្ធមានបញ្ហាក្នុងការទាញយកទិន្នន័យ (${res.status})។ សូមព្យាយាមម្តងទៀត។`);
+      while (remaining > 0) {
+        const currentBatchSize = Math.min(remaining, batchSize);
+        setProgressText(`កំពុងបង្កើតសំណួរ... (${allGeneratedQuestions.length}/${totalQuestions})`);
+
+        const res = await fetch("/api/exams", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            contextText: combinedText, 
+            totalQuestions: currentBatchSize, 
+            difficulty
+          }),
+        });
+
+        const textResponse = await res.text();
+        let data;
+        try {
+          data = JSON.parse(textResponse);
+        } catch (parseError) {
+          throw new Error(`ប្រព័ន្ធមានបញ្ហា (${res.status})។ សូមព្យាយាមម្តងទៀត។`);
+        }
+
+        if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
+
+        allGeneratedQuestions.push(...data.questions);
+        remaining -= currentBatchSize;
       }
 
-      if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
+      setProgressText("កំពុងរក្សាទុក...");
 
+      // រក្សាទុកចូល Database
       const { data: newExam, error: dbError } = await supabase
         .from('exams')
         .insert({
           title: `Exam ថ្មី - ${new Date().toLocaleDateString('km-KH')}`,
-          questions: data.questions,
-          total_questions: data.questions.length,
+          questions: allGeneratedQuestions,
+          total_questions: allGeneratedQuestions.length,
           completed: false,
           user_id: user.id
         })
@@ -105,6 +125,7 @@ export default function ExamBuilderPage() {
       setError(err.message);
     } finally {
       setLoading(false);
+      setProgressText("");
     }
   };
 
@@ -116,7 +137,6 @@ export default function ExamBuilderPage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-8">
-        {/* ជ្រើសរើសមេរៀន */}
         <div>
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-gray-100">
             <FileText className="w-5 h-5 text-indigo-500" /> មេរៀនដែលមាន
@@ -150,7 +170,6 @@ export default function ExamBuilderPage() {
           )}
         </div>
 
-        {/* ការកំណត់ចំនួន និងកម្រិត */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100 dark:border-gray-700">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
@@ -201,7 +220,7 @@ export default function ExamBuilderPage() {
           className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-xl font-bold text-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/30"
         >
           {loading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> កំពុងបង្កើត Exam...</>
+            <><Loader2 className="w-5 h-5 animate-spin" /> {progressText}</>
           ) : (
             "✨ បង្កើត Exam ឥឡូវនេះ"
           )}

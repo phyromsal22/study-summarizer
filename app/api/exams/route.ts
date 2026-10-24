@@ -3,7 +3,6 @@ import { getClient, getModel } from '@/lib/ai/router';
 
 export const maxDuration = 60;
 
-// 👇 មុខងារសម្អាត JSON ករណី AI ដាក់សញ្ញាបន្លិច
 function cleanJSONString(str: string) {
   let cleaned = str.trim();
   if (cleaned.startsWith("```json")) {
@@ -19,10 +18,8 @@ function cleanJSONString(str: string) {
   return cleaned;
 }
 
-// 👇 មុខងារឆ្លាស់ទីតាំងចម្លើយ (Shuffle)
 function shuffleQuestionOptions(question: any) {
   if (!question || !question.options || !Array.isArray(question.options)) return question;
-
   const correctOption = question.options.find((opt: any) => opt.id === question.correct_answer);
   if (!correctOption) return question;
 
@@ -45,16 +42,13 @@ function shuffleQuestionOptions(question: any) {
     return { ...opt, id: newId };
   });
 
-  return {
-    ...question,
-    options: updatedOptions,
-    correct_answer: newCorrectAnswer
-  };
+  return { ...question, options: updatedOptions, correct_answer: newCorrectAnswer };
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    // 👇 API នេះនឹងទទួលតែចំនួនតូច (ឧ. ៥ សំណួរ) ពី Frontend តែម្តង
     const { contextText, totalQuestions, difficulty = 'medium' } = body;
 
     if (!contextText || contextText.trim() === "") {
@@ -70,16 +64,9 @@ export async function POST(req: NextRequest) {
     const client = getClient('exam');
     const model = getModel('exam');
 
-    let allQuestions: any[] = [];
-    let remaining = totalQuestions;
-    const batchSize = 5; 
-
-    while (remaining > 0) {
-      const currentBatchSize = Math.min(remaining, batchSize);
-
-      const prompt = `
+    const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរប្រឡង។
-សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${currentBatchSize} ពីអត្ថបទខាងក្រោម។
+សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${totalQuestions} ពីអត្ថបទខាងក្រោម។
 ${difficultyPrompt}
 
 ច្បាប់ដាច់ខាត៖
@@ -107,39 +94,30 @@ ${difficultyPrompt}
 ${contextText}
 `;
 
-      try {
-        const response = await client.chat.completions.create({
-          model,
-          messages: [
-            { role: 'system', content: 'អ្នកគឺជាអ្នកបង្កើត JSON ដ៏ជំនាញ។ ត្រូវតែឆ្លើយតបជា JSON តែមួយមុខ។' },
-            { role: 'user', content: prompt }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.7,
-          max_tokens: 4000,
-        });
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'អ្នកគឺជាអ្នកបង្កើត JSON ដ៏ជំនាញ។ ត្រូវតែឆ្លើយតបជា JSON តែមួយមុខ។' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+      max_tokens: 2000, // ៥ សំណួរមិនត្រូវការ Token ច្រើនទេ
+    });
 
-        const content = response.choices[0].message.content;
-        if (!content) throw new Error("AI returned empty content");
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("AI returned empty content");
 
-        const cleanedData = cleanJSONString(content);
-        const data = JSON.parse(cleanedData);
-        
-        if (!data.questions || !Array.isArray(data.questions)) {
-           throw new Error("Invalid JSON structure from AI");
-        }
-
-        const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
-        allQuestions.push(...shuffledBatch);
-        remaining -= currentBatchSize;
-      } catch (err: any) {
-        console.error(`Error generating batch:`, err);
-        // ករណី Batch មួយគាំង យើងព្យាយាមបន្តទៅមុខទៀត ឬបោះ Error ចេញ
-        return NextResponse.json({ error: "AI បង្កើតសំណួរមិនជោគជ័យ (JSON Error)។ សូមព្យាយាមម្តងទៀត។" }, { status: 500 });
-      }
+    const cleanedData = cleanJSONString(content);
+    const data = JSON.parse(cleanedData);
+    
+    if (!data.questions || !Array.isArray(data.questions)) {
+        throw new Error("Invalid JSON structure from AI");
     }
 
-    return NextResponse.json({ questions: allQuestions });
+    const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
+
+    return NextResponse.json({ questions: shuffledBatch });
 
   } catch (error: any) {
     console.error("🔥 EXAM API ERROR:", error);
