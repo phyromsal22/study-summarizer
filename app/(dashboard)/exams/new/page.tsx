@@ -76,13 +76,17 @@ export default function ExamBuilderPage() {
         const currentBatchSize = Math.min(remaining, batchSize);
         setProgressText(`កំពុងបង្កើតសំណួរ... (${allGeneratedQuestions.length}/${totalQuestions})`);
 
+        // 👇 បញ្ជូនបញ្ជីសំណួរដែលបានបង្កើតរួច ទៅកាន់ API
+        const existingQuestionTexts = allGeneratedQuestions.map(q => q.question);
+
         const res = await fetch("/api/exams", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             contextText: combinedText, 
             totalQuestions: currentBatchSize, 
-            difficulty
+            difficulty,
+            existingQuestions: existingQuestionTexts
           }),
         });
 

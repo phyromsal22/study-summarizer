@@ -18,7 +18,7 @@ function parseAIJSON(str: string) {
       const repaired = jsonrepair(cleaned);
       return JSON.parse(repaired);
     } catch (error) {
-      throw new Error("AI បង្កើតទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ។ សូមព្យាយាមម្តងទៀត។");
+      throw new Error("AI បង្កើតទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ (JSON Error)។ សូមព្យាយាមម្តងទៀត។");
     }
   }
 }
@@ -50,7 +50,7 @@ function shuffleQuestionOptions(question: any) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { summary, questionCount = 5, difficulty = 'medium' } = body;
+    const { summary, questionCount = 5, difficulty = 'medium', existingQuestions = [] } = body;
 
     if (!summary) {
       return NextResponse.json({ error: "មិនមានអត្ថបទសង្ខេបទេ" }, { status: 400 });
@@ -62,6 +62,12 @@ export async function POST(req: NextRequest) {
     else if (difficulty === 'mix') difficultyPrompt = "កម្រិត៖ ចម្រុះ";
     else difficultyPrompt = "កម្រិត៖ មធ្យម";
 
+    // 👇 បន្ថែម Prompt ដើម្បីចៀសវាងសំណួរដដែលៗ
+    let avoidPrompt = "";
+    if (existingQuestions.length > 0) {
+      avoidPrompt = `\nសំខាន់ខ្លាំងណាស់៖ ហាមបង្កើតសំណួរដូចខាងក្រោមនេះម្តងទៀត៖\n${existingQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join('\n')}`;
+    }
+
     const client = getClient('qcm');
     const model = getModel('qcm');
 
@@ -69,6 +75,7 @@ export async function POST(req: NextRequest) {
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរតេស្តខ្លីៗ (QCM)។
 សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${questionCount} ពីអត្ថបទសង្ខេបខាងក្រោម។
 ${difficultyPrompt}
+${avoidPrompt}
 
 ច្បាប់ដាច់ខាត ១០០%៖
 ១. អ្នកត្រូវតែឆ្លើយតបជា JSON តែមួយមុខប៉ុណ្ណោះ។
@@ -115,9 +122,12 @@ ${summary}
         throw new Error("ទម្រង់ JSON មិនត្រឹមត្រូវ");
     }
 
-    const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
+    // 👇 ត្រងយកតែសំណួរដែលមិនដូចចាស់ (Filter out exact duplicates)
+    const uniqueQuestions = data.questions.filter((q: any) => !existingQuestions.includes(q.question));
+    
+    const finalQuestions = uniqueQuestions.map((q: any) => shuffleQuestionOptions(q));
 
-    return NextResponse.json({ questions: shuffledBatch });
+    return NextResponse.json({ questions: finalQuestions });
 
   } catch (error: any) {
     console.error("🔥 QCM API ERROR:", error);

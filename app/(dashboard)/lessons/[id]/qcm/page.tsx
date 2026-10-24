@@ -28,11 +28,13 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
   const [questionCount, setQuestionCount] = useState(5);
   const [difficulty, setDifficulty] = useState("medium");
   const [loading, setLoading] = useState(false);
+  const [progressText, setProgressText] = useState("");
 
   const startQCM = async () => {
     setIsStarted(true);
     setLoading(true);
     setError("");
+    setProgressText("កំពុងរៀបចំ...");
 
     const supabase = createClient();
     
@@ -49,27 +51,48 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     }
 
     try {
-      const res = await fetch("/api/qcm/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          summary: lesson.summary, 
-          questionCount: questionCount,
-          difficulty: difficulty 
-        }),
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        setQuestions(data.questions);
-      } else {
-        throw new Error(data.error || "មិនអាចបង្កើតសំណួរបានទេ");
+      let allGeneratedQuestions: any[] = [];
+      let remaining = questionCount;
+      const batchSize = 5; // បង្កើត ៥ សំណួរក្នុងមួយដង
+
+      while (remaining > 0) {
+        const currentBatchSize = Math.min(remaining, batchSize);
+        setProgressText(`កំពុងបង្កើតសំណួរ... (${allGeneratedQuestions.length}/${questionCount})`);
+        
+        // 👇 បញ្ជូនបញ្ជីសំណួរដែលបានបង្កើតរួច ទៅកាន់ API
+        const existingQuestionTexts = allGeneratedQuestions.map(q => q.question);
+
+        const res = await fetch("/api/qcm/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            summary: lesson.summary, 
+            questionCount: currentBatchSize,
+            difficulty: difficulty,
+            existingQuestions: existingQuestionTexts 
+          }),
+        });
+        
+        const data = await res.json();
+        
+        if (res.ok) {
+          allGeneratedQuestions.push(...data.questions);
+          remaining -= currentBatchSize;
+        } else {
+          throw new Error(data.error || "មិនអាចបង្កើតសំណួរបានទេ");
+        }
       }
+
+      // ប្រសិនបើ AI បង្កើតសំណួរដដែលៗ ហើយត្រូវបានត្រងចោល ធ្វើឱ្យចំនួនមិនគ្រប់
+      // យើងគ្រាន់តែបង្ហាញសំណួរដែលមាន (ឬអ្នកអាចសរសេរកូដឱ្យវារត់បន្ថែម)
+      setQuestions(allGeneratedQuestions);
+
     } catch (err: any) {
       console.error("Failed to load QCM", err);
       setError(err.message);
     } finally {
       setLoading(false);
+      setProgressText("");
     }
   };
 
@@ -170,8 +193,8 @@ export default function QCMPage({ params }: { params: Promise<{ id: string }> })
     return (
       <div className="flex flex-col justify-center items-center h-64 gap-4 mt-20">
         <Loader2 className="w-12 h-12 animate-spin text-indigo-600" />
-        <p className="text-gray-500 dark:text-gray-400 animate-pulse text-lg">
-          AI កំពុងបង្កើតសំណួរ {questionCount} សម្រាប់អ្នក... (អាចរង់ចាំបន្តិច)
+        <p className="text-gray-500 dark:text-gray-400 animate-pulse text-lg font-medium">
+          {progressText}
         </p>
       </div>
     );
