@@ -1,41 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, getModel } from '@/lib/ai/router';
+import { jsonrepair } from 'jsonrepair'; // 👈 បន្ថែមបណ្ណាល័យជួសជុល JSON
 
 export const maxDuration = 60;
 
-// 👇 មុខងារសម្អាត JSON ដ៏មានឥទ្ធិពល (ការពារ Error 100%)
-function cleanAndParseJSON(str: string) {
+// 👇 មុខងារសម្អាត និងជួសជុល JSON
+function parseAIJSON(str: string) {
   let cleaned = str.trim();
   
-  // ១. លុបសញ្ញា Markdown បើមាន
-  if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.replace(/```json/g, "").replace(/```/g, "").trim();
-  } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/```/g, "").trim();
-  }
+  // លុប Markdown បើមាន
+  cleaned = cleaned.replace(/```json/g, "").replace(/```/g, "").trim();
 
-  // ២. កាត់យកតែចន្លោះពី { ដល់ }
+  // កាត់យកតែចន្លោះពី { ដល់ }
   const start = cleaned.indexOf('{');
   const end = cleaned.lastIndexOf('}');
   if (start !== -1 && end !== -1) {
     cleaned = cleaned.substring(start, end + 1);
   }
 
-  // ៣. ជួសជុលករណី AI បន្ថែមសញ្ញាក្បៀសលើស (Trailing commas)
-  cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
-
-  // ៤. ជួសជុលករណី AI ដាក់ Enter (Newline) ក្នុងអត្ថបទ ដែលធ្វើឱ្យ JSON ខូច
-  cleaned = cleaned.replace(/(?<!^)\n/g, '\\n');
-
   try {
+    // ព្យាយាម Parse ធម្មតាសិន
     return JSON.parse(cleaned);
-  } catch (error) {
-    console.error("❌ Failed to parse JSON. Raw text:", cleaned);
-    throw new Error("AI បង្កើតទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ (JSON Error)។ សូមព្យាយាមម្តងទៀត។");
+  } catch (e) {
+    try {
+      // បើមិនបាន ប្រើ jsonrepair ជួសជុល
+      const repaired = jsonrepair(cleaned);
+      return JSON.parse(repaired);
+    } catch (error) {
+      console.error("❌ Failed to repair JSON. Raw text:", cleaned);
+      throw new Error("AI បង្កើតទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ។ សូមព្យាយាមម្តងទៀត។");
+    }
   }
 }
 
-// 👇 មុខងារឆ្លាស់ទីតាំងចម្លើយ
+// មុខងារឆ្លាស់ទីតាំងចម្លើយ
 function shuffleQuestionOptions(question: any) {
   if (!question || !question.options || !Array.isArray(question.options)) return question;
   const correctOption = question.options.find((opt: any) => opt.id === question.correct_answer);
@@ -87,10 +85,10 @@ export async function POST(req: NextRequest) {
 ${difficultyPrompt}
 
 ច្បាប់ដាច់ខាត ១០០%៖
-១. ទម្រង់ត្រូវតែជា JSON ត្រឹមត្រូវ។
-២. ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
-៣. ហាមប្រើប្រាស់សញ្ញាសម្រង់ពីរ (") នៅក្នុងអត្ថបទសំណួរ ឬចម្លើយ។ ប្រើតែសញ្ញាសម្រង់វិញ្ញាសា ('') ជំនួសវិញ។
-៤. ហាមដាក់អក្សរផ្សេងៗ ក្រៅពី JSON។
+១. អ្នកត្រូវតែឆ្លើយតបជា JSON តែមួយមុខប៉ុណ្ណោះ។ ហាមសរសេរអ្វីផ្សេងទាំងអស់នៅខាងក្រៅ JSON។
+២. ហាមប្រើសញ្ញា Markdown ដូចជា \`\`\`json ។
+៣. ហាមប្រើសញ្ញាសម្រង់ពីរ (") នៅក្នុងអត្ថបទសំណួរ ឬចម្លើយ។ ប្រើតែសញ្ញាសម្រង់វិញ្ញាសា ('') ជំនួសវិញ។
+៤. ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
 
 ទម្រង់ JSON៖
 {
@@ -120,14 +118,15 @@ ${contextText}
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.5, // បន្ថយបន្តិចដើម្បីឱ្យវាសរសេរ JSON បានត្រឹមត្រូវជាងមុន
+      temperature: 0.5,
       max_tokens: 4000,
     });
 
     const content = response.choices[0].message.content;
     if (!content) throw new Error("AI returned empty content");
 
-    const data = cleanAndParseJSON(content);
+    // 👇 ប្រើប្រាស់មុខងារ Parse ថ្មីរបស់យើង
+    const data = parseAIJSON(content);
     
     if (!data.questions || !Array.isArray(data.questions)) {
         throw new Error("ទម្រង់ JSON មិនត្រឹមត្រូវ");

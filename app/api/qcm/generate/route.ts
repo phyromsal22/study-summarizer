@@ -1,16 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getClient, getModel } from '@/lib/ai/router';
+import { jsonrepair } from 'jsonrepair';
 
 export const maxDuration = 60;
 
-// 👇 មុខងារសម្រាប់ឆ្លាស់ទីតាំងចម្លើយ (Shuffle)
+function parseAIJSON(str: string) {
+  let cleaned = str.trim();
+  cleaned = cleaned.replace(/```json/g, "").replace(/```/g, "").trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start !== -1 && end !== -1) cleaned = cleaned.substring(start, end + 1);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    try {
+      const repaired = jsonrepair(cleaned);
+      return JSON.parse(repaired);
+    } catch (error) {
+      throw new Error("AI បង្កើតទម្រង់ទិន្នន័យមិនត្រឹមត្រូវ។ សូមព្យាយាមម្តងទៀត។");
+    }
+  }
+}
+
 function shuffleQuestionOptions(question: any) {
+  if (!question || !question.options || !Array.isArray(question.options)) return question;
   const correctOption = question.options.find((opt: any) => opt.id === question.correct_answer);
   if (!correctOption) return question;
 
   const correctText = correctOption.text;
   const shuffledOptions = [...question.options];
-  
   for (let i = shuffledOptions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffledOptions[i], shuffledOptions[j]] = [shuffledOptions[j], shuffledOptions[i]];
@@ -21,17 +40,11 @@ function shuffleQuestionOptions(question: any) {
 
   const updatedOptions = shuffledOptions.map((opt, index) => {
     const newId = ids[index];
-    if (opt.text === correctText) {
-      newCorrectAnswer = newId;
-    }
+    if (opt.text === correctText) newCorrectAnswer = newId;
     return { ...opt, id: newId };
   });
 
-  return {
-    ...question,
-    options: updatedOptions,
-    correct_answer: newCorrectAnswer
-  };
+  return { ...question, options: updatedOptions, correct_answer: newCorrectAnswer };
 }
 
 export async function POST(req: NextRequest) {
@@ -52,23 +65,14 @@ export async function POST(req: NextRequest) {
     const client = getClient('qcm');
     const model = getModel('qcm');
 
-    let allQuestions: any[] = [];
-    let remaining = questionCount;
-    
-    // 👇 កាត់បន្ថយ Batch Size មកត្រឹម ៥ ដើម្បីកុំឱ្យ JSON វែងពេក
-    const batchSize = 5; 
-
-    while (remaining > 0) {
-      const currentBatchSize = Math.min(remaining, batchSize);
-
-      const prompt = `
+    const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរតេស្តខ្លីៗ (QCM)។
-សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${currentBatchSize} ពីអត្ថបទសង្ខេបខាងក្រោម។
+សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${questionCount} ពីអត្ថបទសង្ខេបខាងក្រោម។
 ${difficultyPrompt}
 
-ច្បាប់ដាច់ខាត៖
-១. ទម្រង់ត្រូវតែជា JSON ត្រឹមត្រូវ ១០០%។
-២. ហាមដាក់ចម្លើយត្រូវជាជម្រើស A គ្រប់សំណួរទាំងអស់។
+ច្បាប់ដាច់ខាត ១០០%៖
+១. អ្នកត្រូវតែឆ្លើយតបជា JSON តែមួយមុខប៉ុណ្ណោះ។
+២. ហាមប្រើសញ្ញាសម្រង់ពីរ (") នៅក្នុងអត្ថបទសំណួរ ឬចម្លើយ។ ប្រើតែសញ្ញាសម្រង់វិញ្ញាសា ('') ជំនួសវិញ។
 
 ទម្រង់ JSON៖
 {
@@ -91,33 +95,29 @@ ${difficultyPrompt}
 ${summary}
 `;
 
-      try {
-        const response = await client.chat.completions.create({
-          model,
-          messages: [
-            { role: 'system', content: 'អ្នកគឺជាអ្នកបង្កើត JSON ដ៏ជំនាញ។' },
-            { role: 'user', content: prompt }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.7,
-          max_tokens: 4000,
-        });
+    const response = await client.chat.completions.create({
+      model,
+      messages: [
+        { role: 'system', content: 'អ្នកគឺជាអ្នកបង្កើត JSON ដ៏ជំនាញ។' },
+        { role: 'user', content: prompt }
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.5,
+      max_tokens: 4000,
+    });
 
-        const content = response.choices[0].message.content;
-        if (!content) throw new Error("AI returned empty content");
+    const content = response.choices[0].message.content;
+    if (!content) throw new Error("AI returned empty content");
 
-        const data = JSON.parse(content);
-        const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
-        
-        allQuestions.push(...shuffledBatch);
-        remaining -= currentBatchSize;
-      } catch (err: any) {
-        console.error(`Error generating batch:`, err);
-        return NextResponse.json({ error: "មានបញ្ហាក្នុងការបង្កើតសំណួរ (JSON Error)។ សូមព្យាយាមម្តងទៀត។" }, { status: 500 });
-      }
+    const data = parseAIJSON(content);
+    
+    if (!data.questions || !Array.isArray(data.questions)) {
+        throw new Error("ទម្រង់ JSON មិនត្រឹមត្រូវ");
     }
 
-    return NextResponse.json({ questions: allQuestions });
+    const shuffledBatch = data.questions.map((q: any) => shuffleQuestionOptions(q));
+
+    return NextResponse.json({ questions: shuffledBatch });
 
   } catch (error: any) {
     console.error("🔥 QCM API ERROR:", error);
