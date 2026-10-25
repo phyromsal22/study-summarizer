@@ -31,10 +31,7 @@ export default function ExamBuilderPage() {
         
       if (data) {
         const validLessons = data.filter((l: any) => 
-          l.title && 
-          l.summary && 
-          l.summary.trim() !== "" && 
-          !l.title.match(/^[0-9a-f]{8}-[0-9a-f]{4}/i)
+          l.title && l.summary && l.summary.trim() !== "" && !l.title.match(/^[0-9a-f]{8}-[0-9a-f]{4}/i)
         );
         setLessons(validLessons);
       }
@@ -69,40 +66,67 @@ export default function ExamBuilderPage() {
       if (!combinedText) throw new Error("មេរៀនដែលបានជ្រើសរើសមិនមានសង្ខេបទេ");
 
       let allGeneratedQuestions: any[] = [];
-      let remaining = totalQuestions;
-      const batchSize = 5;
+      let retries = 0;
+      const maxRetries = 15; // បង្កើនការព្យាយាមដើម្បីធានាគ្រប់ចំនួន
 
-      while (remaining > 0) {
-        const currentBatchSize = Math.min(remaining, batchSize);
-        setProgressText(`កំពុងបង្កើតសំណួរ... (${allGeneratedQuestions.length}/${totalQuestions})`);
-
-        // 👇 បញ្ជូនបញ្ជីសំណួរដែលបានបង្កើតរួច ទៅកាន់ API
+      // 👇 រង្វិលជុំរហូតដល់គ្រប់ចំនួន និងត្រួតពិនិត្យសំណួរស្ទួន
+      while (allGeneratedQuestions.length < totalQuestions && retries < maxRetries) {
+        const remaining = totalQuestions - allGeneratedQuestions.length;
+        const currentBatchSize = Math.min(remaining, 5); 
+        
         const existingQuestionTexts = allGeneratedQuestions.map(q => q.question);
 
-        const res = await fetch("/api/exams", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            contextText: combinedText, 
-            totalQuestions: currentBatchSize, 
-            difficulty,
-            existingQuestions: existingQuestionTexts
-          }),
-        });
+        setProgressText(`កំពុងបង្កើតសំណួរ... (${allGeneratedQuestions.length}/${totalQuestions})`);
 
-        const textResponse = await res.text();
-        let data;
         try {
-          data = JSON.parse(textResponse);
-        } catch (parseError) {
-          throw new Error(`ប្រព័ន្ធមានបញ្ហា (${res.status})។ សូមព្យាយាមម្តងទៀត។`);
+          const res = await fetch("/api/exams", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              contextText: combinedText, 
+              totalQuestions: currentBatchSize, 
+              difficulty,
+              existingQuestions: existingQuestionTexts 
+            }),
+          });
+
+          const textResponse = await res.text();
+          let data;
+          try {
+            data = JSON.parse(textResponse);
+          } catch (parseError) {
+            throw new Error(`ប្រព័ន្ធមានបញ្ហា (${res.status})។ សូមព្យាយាមម្តងទៀត។`);
+          }
+
+          if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
+
+          if (data.questions && data.questions.length > 0) {
+            const uniqueNewQuestions = data.questions.filter((newQ: any) => 
+              !allGeneratedQuestions.some(existingQ => 
+                existingQ.question.trim().toLowerCase() === newQ.question.trim().toLowerCase()
+              )
+            );
+
+            if (uniqueNewQuestions.length > 0) {
+              allGeneratedQuestions.push(...uniqueNewQuestions);
+            } else {
+              retries++; 
+            }
+          } else {
+            retries++; 
+          }
+        } catch (err) {
+          retries++;
+          console.error("Batch generation failed:", err);
+          if (retries >= maxRetries) throw err;
         }
-
-        if (!res.ok) throw new Error(data.error || "មានបញ្ហាក្នុងការបង្កើត Exam");
-
-        allGeneratedQuestions.push(...data.questions);
-        remaining -= currentBatchSize;
       }
+
+      if (allGeneratedQuestions.length < totalQuestions) {
+        throw new Error(`AI មិនអាចបង្កើតសំណួរបានគ្រប់ចំនួនទេ (ទទួលបានតែ ${allGeneratedQuestions.length}/${totalQuestions})។ សូមព្យាយាមម្តងទៀត។`);
+      }
+
+      const finalQuestions = allGeneratedQuestions.slice(0, totalQuestions);
 
       setProgressText("កំពុងរក្សាទុក...");
 
@@ -110,8 +134,8 @@ export default function ExamBuilderPage() {
         .from('exams')
         .insert({
           title: `Exam ថ្មី - ${new Date().toLocaleDateString('km-KH')}`,
-          questions: allGeneratedQuestions,
-          total_questions: allGeneratedQuestions.length,
+          questions: finalQuestions,
+          total_questions: finalQuestions.length,
           completed: false,
           user_id: user.id
         })

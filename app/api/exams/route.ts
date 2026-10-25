@@ -73,13 +73,14 @@ export async function POST(req: NextRequest) {
 
     const prompt = `
 អ្នកគឺជាគ្រូបង្រៀនដែលកំពុងបង្កើតសំណួរប្រឡង។
-សូមបង្កើតសំណួរ Multiple Choice ចំនួន ${totalQuestions} ពីអត្ថបទខាងក្រោម។
+សូមបង្កើតសំណួរ Multiple Choice ចំនួន **${totalQuestions} សំណួរ** ពីអត្ថបទខាងក្រោម។
 ${difficultyPrompt}
 ${avoidPrompt}
 
 ច្បាប់ដាច់ខាត ១០០%៖
-១. អ្នកត្រូវតែឆ្លើយតបជា JSON តែមួយមុខប៉ុណ្ណោះ។
-២. ហាមប្រើសញ្ញាសម្រង់ពីរ (") នៅក្នុងអត្ថបទសំណួរ ឬចម្លើយ។ ប្រើតែសញ្ញាសម្រង់វិញ្ញាសា ('') ជំនួសវិញ។
+១. អ្នកត្រូវតែបង្កើតសំណួរឱ្យបានគ្រប់ **${totalQuestions} សំណួរ** ពិតប្រាកដ (ហាមខ្វះ)។
+២. អ្នកត្រូវតែឆ្លើយតបជា JSON តែមួយមុខប៉ុណ្ណោះ។
+៣. ហាមប្រើសញ្ញាសម្រង់ពីរ (") នៅក្នុងអត្ថបទសំណួរ ឬចម្លើយ។ ប្រើតែសញ្ញាសម្រង់វិញ្ញាសា ('') ជំនួសវិញ។
 
 ទម្រង់ JSON៖
 {
@@ -122,8 +123,11 @@ ${contextText}
         throw new Error("ទម្រង់ JSON មិនត្រឹមត្រូវ");
     }
 
-    // 👇 ត្រងយកតែសំណួរដែលមិនដូចចាស់
-    const uniqueQuestions = data.questions.filter((q: any) => !existingQuestions.includes(q.question));
+    // 👇 ត្រងយកតែសំណួរដែលមិនដូចចាស់ (កែឱ្យកាន់តែច្បាស់លាស់)
+    const uniqueQuestions = data.questions.filter((q: any) => {
+      const newQText = q.question.trim().toLowerCase();
+      return !existingQuestions.some((eq: string) => eq.trim().toLowerCase() === newQText);
+    });
     
     const finalQuestions = uniqueQuestions.map((q: any) => shuffleQuestionOptions(q));
 
